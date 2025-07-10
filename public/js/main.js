@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mainImage = j1Image || (record.images && record.images.length > 0 ? record.images[0] : null);
         const imageUrl = mainImage ? `/image/${mainImage.id}` : 'https://via.placeholder.com/120';
         const title = record.aiData?.Title || 'N/A';
+        const subtitle = record.aiData?.Subtitle || '';
         const isError = record.status === 'error';
 
         const conditionOptions = ['NM', 'EX', 'VG+', 'VG', 'G', 'なし'];
@@ -30,7 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <tr id="row-${record.id}" data-record-id="${record.id}" class="record-row">
                 <td class="status-cell">${isError ? `❌` : `<span id="status-${record.id}">...</span>`}</td>
                 <td class="image-cell"><img src="${imageUrl}" alt="Record Image" class="main-record-image"></td>
-                <td class="info-cell"><strong>${title}</strong></td>
+                <td class="info-cell">
+                    <label>タイトル</label>
+                    <input type="text" name="title" value="${title}" class="title-input">
+                    <label>サブタイトル</label>
+                    <input type="text" name="subtitle" value="${subtitle}" class="subtitle-input">
+                </td>
                 <td class="input-cell">
                     <div class="input-section">
                         <div class="input-group full-width">
@@ -48,18 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <h3 class="section-title">状態</h3>
                     <div class="input-section">
-                        <div class="input-group">
-                            <label>ジャケットの状態</label>
-                            <select name="conditionSleeve" ${isError ? 'disabled' : ''}>${conditionOptionsHtml.replace('value="なし"','value="Not Applicable"')}</select>
-                        </div>
-                        <div class="input-group">
-                            <label>レコードの状態</label>
-                            <select name="conditionVinyl" ${isError ? 'disabled' : ''}>${conditionOptionsHtml.replace('value="なし"','value="Not Applicable"')}</select>
-                        </div>
-                        <div class="input-group">
-                            <label>OBIの状態</label>
-                            <select name="obi" ${isError ? 'disabled' : ''}>${conditionOptionsHtml}</select>
-                        </div>
+                        <div class="input-group"><label>ジャケットの状態</label><select name="conditionSleeve" ${isError ? 'disabled' : ''}>${conditionOptionsHtml.replace('value="なし"','value="Not Applicable"')}</select></div>
+                        <div class="input-group"><label>レコードの状態</label><select name="conditionVinyl" ${isError ? 'disabled' : ''}>${conditionOptionsHtml.replace('value="なし"','value="Not Applicable"')}</select></div>
+                        <div class="input-group"><label>OBIの状態</label><select name="obi" ${isError ? 'disabled' : ''}>${conditionOptionsHtml}</select></div>
                     </div>
                     <div class="input-group full-width">
                         <label>ジャケットのダメージについて</label>
@@ -84,6 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const jacketDamage = Array.from(jacketDamageNodes).map(node => node.value);
 
         const data = {
+            title: row.querySelector('[name="title"]').value,
+            subtitle: row.querySelector('[name="subtitle"]').value,
             price: row.querySelector('input[name="price"]:checked').value,
             shipping: row.querySelector('[name="shipping"]').value,
             conditionSleeve: row.querySelector('[name="conditionSleeve"]').value,

@@ -9,15 +9,11 @@
 <body>
     <div class="container">
         <h1>レコード出品アシスタント</h1>
-        <p>Google DriveのフォルダURLを入力して、出品データを生成します。</p>
+        <p>Google Driveの親フォルダURLを入力して、出品データを生成します。</p>
         <form action="/process" method="POST">
             <div class="form-group">
-                <label>Google Drive フォルダURL (最大5件)</label>
-                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
-                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
-                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
-                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
-                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
+                <label>Google Drive 親フォルダURL</label>
+                <input type="text" name="parentFolderUrl" class="url-input" placeholder="https://drive.google.com/drive/folders/..." required>
             </div>
             <button type="submit" class="btn">解析を開始</button>
         </form>
