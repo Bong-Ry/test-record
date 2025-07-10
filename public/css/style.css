@@ -25,8 +25,17 @@ input[type="number"], select, textarea, .btn { padding: 8px 12px; border-radius:
 .input-group label { font-weight: 600; font-size: 14px; }
 .full-width { grid-column: 1 / -1; }
 
-.info-cell { max-width: 300px; } /* タイトル列の最大幅を設定 */
+.info-cell { max-width: 300px; }
 .info-cell .input-group label { font-weight: 600; font-size: 14px; }
+
+/* --- タイトル警告メッセージのスタイルを追加 --- */
+.title-warning {
+    color: red;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+/* --- ここまで追加 --- */
 
 .radio-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 5px 10px; }
 .radio-label, .checkbox-label { display: flex; align-items: center; gap: 6px; font-weight: normal; }
@@ -44,3 +53,4 @@ tr.saved { background-color: #f0fff4; }
 .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); justify-content: center; align-items: center; }
 .modal-content { margin: auto; display: block; max-width: 80vw; max-height: 90vh; }
 .modal-close { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }
+

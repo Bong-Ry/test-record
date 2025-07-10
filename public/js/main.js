@@ -17,10 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = record.aiData?.Title || 'N/A';
         const subtitle = record.aiData?.Subtitle || '';
         const isError = record.status === 'error';
-
+        
         const conditionOptions = ['NM', 'EX', 'VG+', 'VG', 'G', 'なし'];
         const conditionOptionsHtml = conditionOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('');
-
+        
         const damageOptions = ['上部(下部)の裂け', '角潰れ', 'シワ', 'シミ', 'ラベル剥がれ'];
         const damageCheckboxes = damageOptions.map(opt => `<label class="checkbox-label"><input type="checkbox" name="jacketDamage" value="${opt}" ${isError ? 'disabled' : ''}> ${opt}</label>`).join('');
 
@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="input-group">
                         <label>タイトル</label>
                         <textarea name="title" rows="3" class="title-input">${title}</textarea>
+                        <div class="title-warning" style="display: none;">※80文字以上になっているため修正が必要です。</div>
                     </div>
                     <div class="input-group" style="margin-top: 15px;">
                         <label>サブタイトル</label>
@@ -115,6 +116,22 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.style.display = 'flex';
             modalImg.src = e.target.src;
         });
+
+        // --- タイトル文字数チェック機能を追加 ---
+        const titleInput = row.querySelector('textarea[name="title"]');
+        const titleWarning = row.querySelector('.title-warning');
+
+        const checkTitleLength = () => {
+            if (titleInput.value.length > 80) {
+                titleWarning.style.display = 'block';
+            } else {
+                titleWarning.style.display = 'none';
+            }
+        };
+        
+        checkTitleLength(); // 初期表示時のチェック
+        titleInput.addEventListener('input', checkTitleLength); // 入力時のチェック
+        // --- ここまで追加 ---
     }
 
     modalClose.onclick = () => { modal.style.display = "none"; };
