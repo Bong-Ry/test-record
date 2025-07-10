@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>レコード出品アシスタント</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>レコード出品アシスタント</h1>
+        <p>Google DriveのフォルダURLを入力して、出品データを生成します。</p>
+        <form action="/process" method="POST">
+            <div class="form-group">
+                <label>Google Drive フォルダURL (最大5件)</label>
+                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
+                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
+                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
+                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
+                <input type="text" name="folderUrls[]" class="url-input" placeholder="https://drive.google.com/drive/folders/...">
+            </div>
+            <button type="submit" class="btn">解析を開始</button>
+        </form>
+    </div>
+</body>
+</html>

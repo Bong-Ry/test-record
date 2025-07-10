@@ -1,0 +1,42 @@
+/* 基本スタイル */
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background-color: #f4f7f9; margin: 20px; color: #333; }
+.container { max-width: 1400px; margin: auto; background: #fff; padding: 20px 40px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
+h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 24px; }
+h3.section-title { font-size: 15px; font-weight: bold; padding-bottom: 5px; border-bottom: 1px solid #eee; margin-top: 15px; margin-bottom: 10px; grid-column: 1 / -1; }
+
+/* フォーム要素 */
+input[type="number"], select, textarea, .btn { padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin: 0; font-size: 14px; }
+.btn { background-color: #3498db; color: #fff; cursor: pointer; border: none; font-weight: bold; font-size: 16px; }
+.btn-save { background-color: #2ecc71; }
+.btn-download { float: right; width: auto; margin-bottom: 15px; }
+.url-input { width: 100%; padding: 10px; margin-bottom: 10px; font-size: 16px; }
+
+/* テーブルレイアウト */
+#results-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+#results-table th, #results-table td { border: 1px solid #ddd; padding: 15px; text-align: left; vertical-align: top; }
+#results-table th { background-color: #f2f2f2; font-weight: 600; vertical-align: middle; }
+.status-cell, .action-cell { text-align: center!important; vertical-align: middle!important; }
+.status-cell { font-size: 24px; }
+.info-cell strong { font-size: 16px; font-weight: 600; }
+.main-record-image { max-width: 120px; border-radius: 4px; cursor: pointer; }
+
+/* 詳細入力欄スタイル */
+.input-cell .input-section { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 25px; }
+.input-group { display: flex; flex-direction: column; gap: 5px; }
+.input-group label { font-weight: 600; font-size: 14px; }
+.full-width { grid-column: 1 / -1; }
+
+.checkbox-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.checkbox-label { display: flex; align-items: center; gap: 6px; font-weight: normal; }
+input[type="checkbox"] { width: auto; }
+
+/* その他 */
+tr.saved { background-color: #f0fff4; }
+#progress-container { text-align: center; }
+.progress-bar { width: 100%; background-color: #e0e0e0; border-radius: 4px; overflow: hidden; }
+.progress-bar-inner { height: 20px; width: 0%; background-color: #3498db; }
+
+/* モーダル */
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); justify-content: center; align-items: center; }
+.modal-content { margin: auto; display: block; max-width: 80vw; max-height: 90vh; }
+.modal-close { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }
