@@ -32,10 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="status-cell">${isError ? `❌` : `<span id="status-${record.id}">...</span>`}</td>
                 <td class="image-cell"><img src="${imageUrl}" alt="Record Image" class="main-record-image"></td>
                 <td class="info-cell">
-                    <label>タイトル</label>
-                    <input type="text" name="title" value="${title}" class="title-input">
-                    <label>サブタイトル</label>
-                    <input type="text" name="subtitle" value="${subtitle}" class="subtitle-input">
+                    <div class="input-group">
+                        <label>タイトル</label>
+                        <textarea name="title" rows="3" class="title-input">${title}</textarea>
+                    </div>
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label>サブタイトル</label>
+                        <textarea name="subtitle" rows="4" class="subtitle-input">${subtitle}</textarea>
+                    </div>
                 </td>
                 <td class="input-cell">
                     <div class="input-section">

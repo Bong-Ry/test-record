@@ -17,7 +17,6 @@ input[type="number"], select, textarea, .btn { padding: 8px 12px; border-radius:
 #results-table th { background-color: #f2f2f2; font-weight: 600; vertical-align: middle; }
 .status-cell, .action-cell { text-align: center!important; vertical-align: middle!important; }
 .status-cell { font-size: 24px; }
-.info-cell strong { font-size: 16px; font-weight: 600; }
 .main-record-image { max-width: 120px; border-radius: 4px; cursor: pointer; }
 
 /* 詳細入力欄スタイル */
@@ -26,9 +25,14 @@ input[type="number"], select, textarea, .btn { padding: 8px 12px; border-radius:
 .input-group label { font-weight: 600; font-size: 14px; }
 .full-width { grid-column: 1 / -1; }
 
+.info-cell { max-width: 300px; } /* タイトル列の最大幅を設定 */
+.info-cell .input-group label { font-weight: 600; font-size: 14px; }
+
+.radio-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 5px 10px; }
+.radio-label, .checkbox-label { display: flex; align-items: center; gap: 6px; font-weight: normal; }
+input[type="radio"], input[type="checkbox"] { width: auto; }
+
 .checkbox-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-.checkbox-label { display: flex; align-items: center; gap: 6px; font-weight: normal; }
-input[type="checkbox"] { width: auto; }
 
 /* その他 */
 tr.saved { background-color: #f0fff4; }
