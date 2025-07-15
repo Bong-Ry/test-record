@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mainImage = j1Image || (record.images && record.images.length > 0 ? record.images[0] : null);
         const imageUrl = mainImage ? `/image/${mainImage.id}` : 'https://via.placeholder.com/120';
         
-        const sku = record.customLabel || ''; // SKUを表示するために追加
+        const sku = record.customLabel || '';
         const title = record.aiData?.Title || 'N/A';
         const isError = record.status === 'error';
         
@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const damageCheckboxes = damageOptions.map(opt => `<label class="checkbox-label"><input type="checkbox" name="jacketDamage" value="${opt}" ${isError ? 'disabled' : ''}> ${opt}</label>`).join('');
 
         const priceOptions = ['39.99', '29.99', '59.99', '79.99', '99.99'];
-        const priceRadios = priceOptions.map((price, index) => `<label class="radio-label"><input type="radio" name="price" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`).join('');
+        // 各行でユニークなname属性を生成
+        const priceRadios = priceOptions.map((price, index) => `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`).join('');
 
         return `
             <tr id="row-${record.id}" data-record-id="${record.id}" class="record-row">
@@ -88,8 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = {
             title: row.querySelector('[name="title"]').value,
-            // subtitleを削除
-            price: row.querySelector('input[name="price"]:checked').value,
+            // ユニークなname属性を持つラジオボタンから値を取得
+            price: row.querySelector(`input[name="price-${recordId}"]:checked`).value,
             shipping: row.querySelector('[name="shipping"]').value,
             conditionSleeve: row.querySelector('[name="conditionSleeve"]').value,
             conditionVinyl: row.querySelector('[name="conditionVinyl"]').value,
