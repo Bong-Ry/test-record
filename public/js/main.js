@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sku = record.customLabel || '';
         const title = record.aiData?.Title || 'N/A';
+        const subtitle = record.aiData?.Subtitle || '';
         const isError = record.status === 'error';
         
         const conditionOptions = ['NM', 'EX', 'VG+', 'VG', 'G', 'なし'];
@@ -26,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const damageCheckboxes = damageOptions.map(opt => `<label class="checkbox-label"><input type="checkbox" name="jacketDamage" value="${opt}" ${isError ? 'disabled' : ''}> ${opt}</label>`).join('');
 
         const priceOptions = ['39.99', '29.99', '59.99', '79.99', '99.99'];
-        // 各行でユニークなname属性を生成
         const priceRadios = priceOptions.map((price, index) => `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`).join('');
 
         return `
@@ -34,14 +34,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="status-cell">${isError ? `❌` : `<span id="status-${record.id}">...</span>`}</td>
                 <td class="image-cell"><img src="${imageUrl}" alt="Record Image" class="main-record-image"></td>
                 <td class="info-cell">
-                    <div class="input-group">
+                    <div class="info-input-group">
                         <label>SKU</label>
                         <span class="sku-display">${sku}</span>
                     </div>
-                    <div class="input-group" style="margin-top: 15px;">
+                    <div class="info-input-group">
                         <label>タイトル</label>
                         <textarea name="title" rows="4" class="title-input">${title}</textarea>
                         <div class="title-warning" style="display: none;">※80文字以上になっているため修正が必要です。</div>
+                    </div>
+                    <div class="info-input-group">
+                        <label>サブタイトル</label>
+                        <textarea name="subtitle" rows="5" class="subtitle-input">${subtitle}</textarea>
                     </div>
                 </td>
                 <td class="input-cell">
@@ -89,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = {
             title: row.querySelector('[name="title"]').value,
-            // ユニークなname属性を持つラジオボタンから値を取得
+            subtitle: row.querySelector('[name="subtitle"]').value,
             price: row.querySelector(`input[name="price-${recordId}"]:checked`).value,
             shipping: row.querySelector('[name="shipping"]').value,
             conditionSleeve: row.querySelector('[name="conditionSleeve"]').value,
