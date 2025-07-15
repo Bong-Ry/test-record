@@ -4,13 +4,13 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+// プロンプトから "Subtitle" を削除
 const PROMPT_TEXT = `
 あなたはプロのアナログレコード鑑定士です。
 提供されたレコードのジャケットやラベルの画像から、Discogsのデータベースを参照して、このレコードを1件だけ特定してください。
 そして、以下のJSON形式に従って、eBay出品用の項目を英語で出力してください。
 
 - Title: アーティスト名とアルバム名を簡潔に。
-- Subtitle: 盤のフォーマット（LP, EP, 12", 7"）、特徴（Promo, Reissue, Limited Editionなど）、重要な情報を追記。
 - Artist: アーティスト名。
 - Genre: 音楽ジャンル。
 - Style: より詳細な音楽スタイル。
@@ -23,24 +23,25 @@ const PROMPT_TEXT = `
 - Notes: Discogsに記載されている特記事項。
 - DiscogsUrl: 特定したDiscogsのURL。
 - MPN: カタログ番号と同じで可。
+- Material: レコードの素材。通常は "Vinyl" です。
 
 必ず指定されたJSONフォーマットで回答してください。他のテキストは含めないでください。
 `;
 
-/**
- * 画像URLをOpenAI Vision APIに送信し、レコード情報を解析させる
- * @param {string[]} imageUrls 画像の公開URL配列
- * @returns {Promise<object>} 解析結果のJSONオブジェクト
- */
-async function analyzeRecord(imageUrls) {
-    if (!imageUrls || imageUrls.length === 0) {
-        throw new Error('画像URLがありません。');
+// URLの代わりに画像データのBufferを受け取るように変更
+async function analyzeRecord(imageBuffers) {
+    if (!imageBuffers || imageBuffers.length === 0) {
+        throw new Error('画像データがありません。');
     }
 
-    const imageMessages = imageUrls.map(url => ({
-        type: 'image_url',
-        image_url: { url: url },
-    }));
+    // 画像データをBase64形式に変換
+    const imageMessages = imageBuffers.map(buffer => {
+        const base64Image = buffer.toString('base64');
+        return {
+            type: 'image_url',
+            image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+        };
+    });
 
     try {
         const response = await openai.chat.completions.create({

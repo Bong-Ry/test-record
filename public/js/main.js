@@ -14,8 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const j1Image = record.images?.find(img => img.name.startsWith('J1_'));
         const mainImage = j1Image || (record.images && record.images.length > 0 ? record.images[0] : null);
         const imageUrl = mainImage ? `/image/${mainImage.id}` : 'https://via.placeholder.com/120';
+        
+        const sku = record.customLabel || ''; // SKUを表示するために追加
         const title = record.aiData?.Title || 'N/A';
-        const subtitle = record.aiData?.Subtitle || '';
         const isError = record.status === 'error';
         
         const conditionOptions = ['NM', 'EX', 'VG+', 'VG', 'G', 'なし'];
@@ -33,13 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="image-cell"><img src="${imageUrl}" alt="Record Image" class="main-record-image"></td>
                 <td class="info-cell">
                     <div class="input-group">
-                        <label>タイトル</label>
-                        <textarea name="title" rows="3" class="title-input">${title}</textarea>
-                        <div class="title-warning" style="display: none;">※80文字以上になっているため修正が必要です。</div>
+                        <label>SKU</label>
+                        <span class="sku-display">${sku}</span>
                     </div>
                     <div class="input-group" style="margin-top: 15px;">
-                        <label>サブタイトル</label>
-                        <textarea name="subtitle" rows="4" class="subtitle-input">${subtitle}</textarea>
+                        <label>タイトル</label>
+                        <textarea name="title" rows="4" class="title-input">${title}</textarea>
+                        <div class="title-warning" style="display: none;">※80文字以上になっているため修正が必要です。</div>
                     </div>
                 </td>
                 <td class="input-cell">
@@ -87,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = {
             title: row.querySelector('[name="title"]').value,
-            subtitle: row.querySelector('[name="subtitle"]').value,
+            // subtitleを削除
             price: row.querySelector('input[name="price"]:checked').value,
             shipping: row.querySelector('[name="shipping"]').value,
             conditionSleeve: row.querySelector('[name="conditionSleeve"]').value,
@@ -117,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
             modalImg.src = e.target.src;
         });
 
-        // --- タイトル文字数チェック機能を追加 ---
         const titleInput = row.querySelector('textarea[name="title"]');
         const titleWarning = row.querySelector('.title-warning');
 
@@ -129,9 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
         
-        checkTitleLength(); // 初期表示時のチェック
-        titleInput.addEventListener('input', checkTitleLength); // 入力時のチェック
-        // --- ここまで追加 ---
+        checkTitleLength();
+        titleInput.addEventListener('input', checkTitleLength);
     }
 
     modalClose.onclick = () => { modal.style.display = "none"; };
@@ -169,3 +168,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let intervalId = setInterval(checkStatus, 2000);
 });
+

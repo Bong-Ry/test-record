@@ -1,21 +1,15 @@
-/* Router for record processing and CSV export (eBay format) */
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { getRecordImages, getDriveImageStream, getSubfolders, renameFolder } = require('../services/googleDriveService');
+const { getSubfolders, getRecordImages, renameFolder, getDriveImageStream, getDriveImageBuffer } = require('../services/googleDriveService');
 const { analyzeRecord } = require('../services/openAiService');
 
-/* Build listing description (HTML) */
 const descriptionTemplate = (data) => {
     const obiStatus = data.user.obi !== 'なし' ? data.user.obi : 'Not Included';
-
+    
     let damageList = '';
     if (data.user.jacketDamage?.length) {
         const damageMap = {
-            '上部(下部)の裂け': 'Seam Split',
-            '角潰れ': 'Corner Dings',
-            'シワ': 'Creases',
-            'シミ': 'Stains',
-            'ラベル剥がれ': 'Sticker Damage',
+            '上部(下部)の裂け': 'Seam Split', '角潰れ': 'Corner Dings', 'シワ': 'Creases', 'シミ': 'Stains', 'ラベル剥がれ': 'Sticker Damage',
         };
         damageList = data.user.jacketDamage.map(d => `- ${damageMap[d] || d}`).join('<br>');
     }
@@ -23,7 +17,7 @@ const descriptionTemplate = (data) => {
     const html = `
     <div style="font-family: Arial, sans-serif; max-width: 900px; margin: auto;">
         <h1 style="font-size: 24px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
-            ${data.ai.Title || ''}
+            ${data.user.title || data.ai.Title || ''}
         </h1>
         <p style="margin: 16px 0;">
             Our records are pre-owned. Please note that they may have wear, odor, or other signs of aging.<br><br>
@@ -75,33 +69,31 @@ const descriptionTemplate = (data) => {
     return html.replace(/\r?\n|\r/g, '').replace(/\s\s+/g, ' ').trim();
 };
 
-/* YYMMDD string */
 const getFormattedDate = () => {
     const d = new Date();
-    return `${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}${mm}${dd}`;
 };
 
-/* Build CSV rows for eBay File Exchange */
 const generateCsv = (records) => {
     const header = ["Action(CC=Cp1252)","CustomLabel","StartPrice","ConditionID","Title","Description","C:Brand","PicURL","UPC","Category","PayPalAccepted","PayPalEmailAddress","PaymentProfileName","ReturnProfileName","ShippingProfileName","Country","Location","StoreCategory","Apply Profile Domestic","Apply Profile International","BuyerRequirements:LinkedPayPalAccount","Duration","Format","Quantity","Currency","SiteID","C:Country","BestOfferEnabled","C:Artist","C:Material","C:Release Title","C:Genre","C:Type","C:Record Label","C:Color","C:Record Size","C:Style","C:Format","C:Release Year","C:Record Grading","C:Sleeve Grading","C:Inlay Condition","C:Case Type","C:Edition","C:Speed","C:Features","C:Country/Region of Manufacture","C:Language","C:Occasion","C:Instrument","C:Era","C:Producer","C:Fidelity Level","C:Composer","C:Conductor","C:Performer Orchestra","C:Run Time","C:MPN","C:California Prop 65 Warning","C:Catalog Number","C:Number of Audio Channels","C:Unit Quantity","C:Unit Type","C:Vinyl Matrix Number","__keyValuePairs"];
     const headerRow = header.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
 
-    let n = 0;
     const dataRows = records.filter(r => r.status === 'saved').map(r => {
-        n += 1;
         const ai = r.aiData, user = r.userInput;
         const row = Array(header.length).fill('NA');
 
-        const customLabel = `R${getFormattedDate()}_${String(n).padStart(4, '0')}`;
-        const sortOrder = { J1_: 1, J2_: 2, R1_: 3 };
+        const sortOrder = { 'M_': 1, 'J1_': 2, 'J2_': 3, 'R1_': 4 };
         const picURL = [...r.images]
-            .sort((a, b) => (sortOrder[a.name.slice(0, 3)] || 4) - (sortOrder[b.name.slice(0, 3)] || 4))
-            .map(img => img.url).join('|'); // PicURLの区切り文字を修正
+            .sort((a, b) => (sortOrder[a.name.slice(0, 2)] || 5) - (sortOrder[b.name.slice(0, 2)] || 5))
+            .map(img => img.url).join('|');
 
         const shippingProfileName = user.shipping ? `#${user.shipping}-DHL FedEx 00.00 - 06.50kg` : '';
 
         row[0]  = 'Add';
-        row[1]  = customLabel;
+        row[1]  = r.customLabel || ''; // Use generated SKU
         row[2]  = user.price || '';
         row[3]  = '3000';
         row[4]  = user.title || ai.Title || '';
@@ -137,7 +129,7 @@ const generateCsv = (records) => {
         row[38] = ai.Released || '';
         row[39] = user.conditionVinyl || '';
         row[40] = user.conditionSleeve || '';
-        row[46] = 'Japanese (with Obi strip)';
+        row[46] = user.obi !== 'なし' ? 'Japanese (with Obi strip)' : 'Unknown';
         row[60] = ai.CatalogNumber || '';
 
         return row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
@@ -146,7 +138,6 @@ const generateCsv = (records) => {
     return [headerRow, ...dataRows].join('\n');
 };
 
-/* Express router */
 module.exports = (sessions) => {
     const router = express.Router();
 
@@ -173,18 +164,42 @@ module.exports = (sessions) => {
         try {
             const subfolders = await getSubfolders(parentFolderId);
             const session = sessions.get(sessionId);
-            session.records = subfolders.map(folder => ({
-                id: uuidv4(),
-                folderId: folder.id,
-                originalFolderName: folder.name,
-                status: 'pending'
-            }));
+            
+            let recordCounter = 0; // SKU counter for this session
+            const dateStr = getFormattedDate();
+
+            session.records = subfolders.map(folder => {
+                recordCounter++;
+                return {
+                    id: uuidv4(),
+                    folderId: folder.id,
+                    originalFolderName: folder.name,
+                    status: 'pending',
+                    customLabel: `R${dateStr}_${String(recordCounter).padStart(4, '0')}`
+                };
+            });
 
             for (const record of session.records) {
                 try {
                     const images = await getRecordImages(record.folderId);
-                    const aiData = await analyzeRecord(images.map(img => img.url));
+                    
+                    const imageBuffers = [];
+                    for (const image of images.slice(0, 3)) {
+                        try {
+                            const buffer = await getDriveImageBuffer(image.id);
+                            imageBuffers.push(buffer);
+                        } catch (e) {
+                            console.error(`Failed to download image ${image.id}:`, e);
+                        }
+                    }
+
+                    if (imageBuffers.length === 0) {
+                        throw new Error("No images could be downloaded for analysis.");
+                    }
+                    
+                    const aiData = await analyzeRecord(imageBuffers);
                     Object.assign(record, { images, aiData, status: 'success' });
+
                 } catch (error) {
                     Object.assign(record, { error: error.message, status: 'error' });
                 }
@@ -205,7 +220,7 @@ module.exports = (sessions) => {
         
         record.userInput = {
             title: req.body.title,
-            subtitle: req.body.subtitle,
+            // subtitleを削除
             price: req.body.price,
             shipping: req.body.shipping,
             conditionSleeve: req.body.conditionSleeve,
@@ -232,7 +247,6 @@ module.exports = (sessions) => {
         const s = sessions.get(req.params.sessionId);
         if (!s?.records) return res.status(404).send('Session not found');
         
-        // ファイル名をYYYYMMDD形式にする
         const d = new Date();
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -240,7 +254,7 @@ module.exports = (sessions) => {
         const fileName = `${yyyy}${mm}${dd}.csv`;
 
         res.header('Content-Type', 'text/csv; charset=UTF-8');
-        res.attachment(fileName); // ファイル名を指定
+        res.attachment(fileName);
         res.send('\uFEFF' + generateCsv(s.records));
     });
 
