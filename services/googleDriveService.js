@@ -7,6 +7,9 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
+/**
+ * 親フォルダ内の未処理サブフォルダを取得（名前に「済」が含まれないもの）
+ */
 async function getSubfolders(parentFolderId) {
     try {
         const res = await drive.files.list({
@@ -24,6 +27,28 @@ async function getSubfolders(parentFolderId) {
     }
 }
 
+/**
+ * 親フォルダ内で既に処理済みのサブフォルダを取得（名前に「済」が含まれるもの）
+ */
+async function getProcessedSubfolders(parentFolderId) {
+    try {
+        const res = await drive.files.list({
+            q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and name contains '済'`,
+            fields: 'files(id, name)',
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true,
+            corpora: 'allDrives',
+        });
+        return res.data.files || [];
+    } catch (error) {
+        console.error('Error fetching processed subfolders:', error.message);
+        throw new Error('Processed subfolders retrieval failed.');
+    }
+}
+
+/**
+ * レコード画像ファイル一覧を取得
+ */
 async function getRecordImages(folderId) {
     try {
         const res = await drive.files.list({
@@ -39,6 +64,9 @@ async function getRecordImages(folderId) {
     }
 }
 
+/**
+ * フォルダ名を「済 xxx」などに更新
+ */
 async function renameFolder(folderId, newName) {
     try {
         await drive.files.update({
@@ -51,6 +79,9 @@ async function renameFolder(folderId, newName) {
     }
 }
 
+/**
+ * 画像データをストリームで取得
+ */
 async function getDriveImageStream(fileId) {
     const res = await drive.files.get(
         { fileId: fileId, alt: 'media', supportsAllDrives: true },
@@ -59,7 +90,9 @@ async function getDriveImageStream(fileId) {
     return res.data;
 }
 
-// 画像データをBufferとして取得する関数
+/**
+ * 画像データをBufferで取得
+ */
 async function getDriveImageBuffer(fileId) {
     try {
         const stream = await getDriveImageStream(fileId);
@@ -75,5 +108,11 @@ async function getDriveImageBuffer(fileId) {
     }
 }
 
-module.exports = { getSubfolders, getRecordImages, renameFolder, getDriveImageStream, getDriveImageBuffer };
-
+module.exports = {
+    getSubfolders,
+    getProcessedSubfolders,
+    getRecordImages,
+    renameFolder,
+    getDriveImageStream,
+    getDriveImageBuffer
+};
