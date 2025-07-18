@@ -7,66 +7,71 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
-/**
- * 親フォルダ内の未処理サブフォルダを取得（名前に「済」が含まれないもの）
- */
+/*───────────────────────────────
+ * Drive helper
+ *───────────────────────────────*/
+async function listAll(params) {
+    const files = [];
+    let pageToken;
+    do {
+        const res = await drive.files.list({ ...params, pageToken });
+        if (res.data.files?.length) files.push(...res.data.files);
+        pageToken = res.data.nextPageToken;
+    } while (pageToken);
+    return files;
+}
+
+/* 親フォルダ内の未処理フォルダ（名前に「済」を含まない） */
 async function getSubfolders(parentFolderId) {
     try {
-        const res = await drive.files.list({
-            q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and not name contains '済'`,
-            fields: 'files(id, name)',
-            pageSize: 10,
+        const files = await listAll({
+            q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+            fields: 'files(id, name), nextPageToken',
             supportsAllDrives: true,
             includeItemsFromAllDrives: true,
             corpora: 'allDrives',
         });
-        return res.data.files || [];
-    } catch (error) {
-        console.error('Error fetching subfolders:', error.message);
+        return files.filter(f => !f.name.includes('済'));
+    } catch (err) {
+        console.error('Error fetching subfolders:', err.message);
         throw new Error('サブフォルダの取得に失敗しました。');
     }
 }
 
-/**
- * 親フォルダ内で既に処理済みのサブフォルダを取得（名前に「済」が含まれるもの）
- */
+/* 親フォルダ内の処理済みフォルダ（名前に「済」を含む） */
 async function getProcessedSubfolders(parentFolderId) {
     try {
-        const res = await drive.files.list({
-            q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and name contains '済'`,
-            fields: 'files(id, name)',
+        const files = await listAll({
+            q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+            fields: 'files(id, name), nextPageToken',
             supportsAllDrives: true,
             includeItemsFromAllDrives: true,
             corpora: 'allDrives',
         });
-        return res.data.files || [];
-    } catch (error) {
-        console.error('Error fetching processed subfolders:', error.message);
+        return files.filter(f => f.name.includes('済'));
+    } catch (err) {
+        console.error('Error fetching processed subfolders:', err.message);
         throw new Error('Processed subfolders retrieval failed.');
     }
 }
 
-/**
- * レコード画像ファイル一覧を取得
- */
+/* フォルダ内画像一覧 */
 async function getRecordImages(folderId) {
     try {
-        const res = await drive.files.list({
-            q: `'${folderId}' in parents and mimeType contains 'image/'`,
-            fields: 'files(id, name)',
+        const files = await listAll({
+            q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
+            fields: 'files(id, name), nextPageToken',
             supportsAllDrives: true,
             includeItemsFromAllDrives: true,
         });
-        return res.data.files || [];
-    } catch (error) {
-        console.error('Error fetching record images:', error.message);
+        return files;
+    } catch (err) {
+        console.error('Error fetching record images:', err.message);
         throw new Error('Google Driveからのファイル取得に失敗しました。');
     }
 }
 
-/**
- * フォルダ名を「済 xxx」などに更新
- */
+/* フォルダ名変更 */
 async function renameFolder(folderId, newName) {
     try {
         await drive.files.update({
@@ -74,36 +79,32 @@ async function renameFolder(folderId, newName) {
             requestBody: { name: newName },
             supportsAllDrives: true,
         });
-    } catch (error) {
-        console.error('Error renaming folder:', error.message);
+    } catch (err) {
+        console.error('Error renaming folder:', err.message);
     }
 }
 
-/**
- * 画像データをストリームで取得
- */
+/* 画像ストリーム */
 async function getDriveImageStream(fileId) {
     const res = await drive.files.get(
-        { fileId: fileId, alt: 'media', supportsAllDrives: true },
+        { fileId, alt: 'media', supportsAllDrives: true },
         { responseType: 'stream' }
     );
     return res.data;
 }
 
-/**
- * 画像データをBufferで取得
- */
+/* 画像 Buffer */
 async function getDriveImageBuffer(fileId) {
     try {
         const stream = await getDriveImageStream(fileId);
         return new Promise((resolve, reject) => {
             const chunks = [];
-            stream.on('data', (chunk) => chunks.push(chunk));
+            stream.on('data', c => chunks.push(c));
             stream.on('error', reject);
             stream.on('end', () => resolve(Buffer.concat(chunks)));
         });
-    } catch (error) {
-        console.error('Error fetching image buffer:', error.message);
+    } catch (err) {
+        console.error('Error fetching image buffer:', err.message);
         throw new Error('Image buffer could not be fetched.');
     }
 }
