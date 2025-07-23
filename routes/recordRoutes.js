@@ -1,7 +1,7 @@
 /* Router: record processing & CSV (eBay) */
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { google } = require('googleapis'); // スプレッドシート用に追加
+const { google } = require('googleapis'); // スプレッドシート用
 const {
   getSubfolders,
   getProcessedSubfolders,
@@ -12,6 +12,7 @@ const {
 } = require('../services/googleDriveService');
 const { analyzeRecord } = require('../services/openAiService');
 
+// --- Google Sheets APIのセットアップ ---
 const sheets = google.sheets('v4');
 const auth = new google.auth.GoogleAuth({
     keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
@@ -28,7 +29,8 @@ async function getGoogleSheetData() {
         });
         const rows = res.data.values;
         if (rows && rows.length) {
-            return rows.map(row => ({ name: row[0], code: row[1] }));
+            // A列が空でない行のみをフィルタリング
+            return rows.filter(row => row[0] && row[0].trim() !== '').map(row => ({ name: row[0], code: row[1] }));
         }
         return [];
     } catch (err) {
@@ -131,8 +133,27 @@ const getFormattedDate = () => {
 /* ──────────────────────────
  * CSV builder
  * ────────────────────────── */
-const prefixKey = n => n.startsWith('M_') ? 'M_' : n.slice(0, 3);
-const order = { 'M_': 1, 'J1_': 2, 'J2_': 3, 'R1_': 4 };
+// 並び順のルールを定義する関数
+const getSortKey = (name) => {
+    const nameUpper = name.toUpperCase();
+    let group = 99;
+    let number = 0;
+
+    const match = nameUpper.match(/^([MJR])(\d*)_/);
+
+    if (match) {
+        const letter = match[1];
+        const numStr = match[2];
+
+        if (letter === 'M') group = 1;
+        if (letter === 'J') group = 2;
+        if (letter === 'R') group = 3;
+
+        number = numStr ? parseInt(numStr, 10) : 0; // M_などは0として扱う
+    }
+    return { group, number };
+};
+
 
 const generateCsv = records => {
   const header = [
@@ -148,7 +169,7 @@ const generateCsv = records => {
     "C:Language","C:Occasion","C:Instrument","C:Era","C:Producer","C:Fidelity Level",
     "C:Composer","C:Conductor","C:Performer Orchestra","C:Run Time","C:MPN",
     "C:California Prop 65 Warning","C:Catalog Number","C:Number of Audio Channels",
-    "C:Unit Quantity","C:Unit Type","C:Vinyl Matrix Number", "Created categories" // 修正
+    "C:Unit Quantity","C:Unit Type","C:Vinyl Matrix Number", "Created categories"
   ];
   const headerRow = header.map(h => `"${h.replace(/"/g, '""')}"`).join(',');
 
@@ -156,8 +177,17 @@ const generateCsv = records => {
     const { aiData: ai, userInput: user } = r;
     const row = Array(header.length).fill('');
 
+    // 新しい並び順ルールでソート
     const picURL = [...r.images]
-      .sort((a, b) => (order[prefixKey(a.name)] || 99) - (order[prefixKey(b.name)] || 99))
+      .sort((a, b) => {
+          const keyA = getSortKey(a.name);
+          const keyB = getSortKey(b.name);
+
+          if (keyA.group !== keyB.group) {
+              return keyA.group - keyB.group;
+          }
+          return keyA.number - keyB.number;
+      })
       .map(img => img.url)
       .join('|');
 
@@ -176,7 +206,7 @@ const generateCsv = records => {
     row[5]  = descriptionTemplate({ ai, user });
     row[6]  = ai.RecordLabel || '';
     row[7]  = picURL;
-    row[9]  = user.category || '176985'; // 修正: カテゴリーを使用
+    row[9]  = user.category || '176985';
     row[10] = '1';
     row[11] = 'payAddress';
     row[12] = 'buy it now';
@@ -205,9 +235,9 @@ const generateCsv = records => {
     row[38] = ai.Released || '';
     row[39] = user.conditionVinyl  || '';
     row[40] = user.conditionSleeve || '';
-    row[46] = 'Japan'; // 修正: Japanese -> Japan
+    row[46] = 'Japan';
     row[60] = ai.CatalogNumber || '';
-    row[66] = user.category || '176985'; // 修正: Created categories列
+    row[66] = user.category || '176985';
 
     return row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
   });
@@ -230,23 +260,23 @@ module.exports = sessions => {
   });
 
   router.post('/process', async (req, res) => {
-    const url = req.body.parentFolderUrl;
-    if (!url) return res.redirect('/');
-    const parentFolderId = url.split('/folders/')[1]?.split('?')[0];
+    const { parentFolderUrl, defaultCategory } = req.body;
+    if (!parentFolderUrl) return res.redirect('/');
+    const parentFolderId = parentFolderUrl.split('/folders/')[1]?.split('?')[0];
     if (!parentFolderId) return res.status(400).send('Invalid Folder URL');
 
     const sessionId = uuidv4();
-    sessions.set(sessionId, { status: 'processing', records: [], categories: [] }); // categoriesを追加
-    res.render('results', { sessionId });
+    sessions.set(sessionId, { status: 'processing', records: [], categories: [], defaultCategory: defaultCategory });
+    res.render('results', { sessionId: sessionId, defaultCategory: defaultCategory });
 
     try {
-      const [unproc, proc, categories] = await Promise.all([ // categoriesを取得
+      const [unproc, proc, categories] = await Promise.all([
         getSubfolders(parentFolderId),
         getProcessedSubfolders(parentFolderId),
         getGoogleSheetData()
       ]);
       const session = sessions.get(sessionId);
-      session.categories = categories; // セッションに保存
+      session.categories = categories;
 
       let counter = proc.length;
       const dateStr = getFormattedDate();
@@ -266,11 +296,19 @@ module.exports = sessions => {
             url: `https://drive.google.com/uc?export=download&id=${img.id}`
           }));
 
+          // AI解析用の画像（J1, J2, R1）をフィルタリング
+          const analysisImages = imgs.filter(img =>
+              img.name.toUpperCase().startsWith('J1_') ||
+              img.name.toUpperCase().startsWith('J2_') ||
+              img.name.toUpperCase().startsWith('R1_')
+          );
+
           const buf = [];
-          for (const img of imgs.slice(0, 3)) {
+          for (const img of analysisImages) {
             try { buf.push(await getDriveImageBuffer(img.id)); } catch {}
           }
-          if (!buf.length) throw new Error('No images downloaded.');
+          if (!buf.length) throw new Error('No images for analysis downloaded.');
+
           const aiData = await analyzeRecord(buf);
           Object.assign(rec, { images: imgs, aiData, status: 'success' });
         } catch (err) {
@@ -300,7 +338,7 @@ module.exports = sessions => {
       obi:             req.body.obi,
       jacketDamage:    req.body.jacketDamage || [],
       comment:         req.body.comment,
-      category:        req.body.category, // categoryを追加
+      category:        req.body.category,
     };
     rec.status = 'saved';
 
@@ -308,7 +346,15 @@ module.exports = sessions => {
     res.json({ status: 'ok' });
   });
 
-  router.get('/', (_req, res) => res.render('index'));
+  router.get('/', async (req, res) => {
+    try {
+        const categories = await getGoogleSheetData();
+        res.render('index', { categories: categories });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("カテゴリーの読み込みに失敗しました。");
+    }
+  });
 
   router.get('/status/:sessionId', (req, res) =>
     res.json(sessions.get(req.params.sessionId) || { status: 'error', error: 'Session not found' })

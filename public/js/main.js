@@ -32,8 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`
         ).join('');
 
-        // カテゴリープルダウンを追加
-        const categoriesHtml = record.categories ? record.categories.map(cat => `<option value="${cat.code}">${cat.name}</option>`).join('') : '';
+        // サーバーから渡されたカテゴリー情報とデフォルトカテゴリーを使ってプルダウンを生成
+        const categoriesHtml = record.categories ? record.categories.map(cat =>
+            `<option value="${cat.code}" ${cat.code === defaultCategory ? 'selected' : ''}>${cat.name}</option>`
+        ).join('') : '';
 
         return `
             <tr id="row-${record.id}" data-record-id="${record.id}" class="record-row">
@@ -79,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      <div class="input-group full-width">
                         <label>カテゴリー</label>
                         <select name="category" ${isError ? 'disabled' : ''}>
-                           <option value="176985">Vinyl record</option>
                            ${categoriesHtml}
                         </select>
                     </div>
@@ -103,21 +104,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const jacketDamage      = Array.from(jacketDamageNodes).map(node => node.value);
 
         const data = {
-            title          : row.querySelector('[name="title"]').value,
-            price          : row.querySelector(`input[name="price-${recordId}"]:checked`).value,
-            shipping       : row.querySelector('[name="shipping"]').value,
+            title:           row.querySelector('[name="title"]').value,
+            price:           row.querySelector(`input[name="price-${recordId}"]:checked`).value,
+            shipping:        row.querySelector('[name="shipping"]').value,
             conditionSleeve: row.querySelector('[name="conditionSleeve"]').value,
-            conditionVinyl : row.querySelector('[name="conditionVinyl"]').value,
-            obi            : row.querySelector('[name="obi"]').value,
-            jacketDamage   : jacketDamage,
-            comment        : row.querySelector('[name="comment"]').value,
-            category       : row.querySelector('[name="category"]').value,
+            conditionVinyl:  row.querySelector('[name="conditionVinyl"]').value,
+            obi:             row.querySelector('[name="obi"]').value,
+            jacketDamage:    jacketDamage,
+            comment:         row.querySelector('[name="comment"]').value,
+            category:        row.querySelector('[name="category"]').value,
         };
 
         fetch(`/save/${sessionId}/${recordId}`, {
-            method : 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body   : JSON.stringify(data),
+            body:    JSON.stringify(data),
         })
         .then(res => res.json())
         .then(result => {

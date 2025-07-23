@@ -5,15 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>レコード出品アシスタント</title>
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* このページ専用のスタイルを追加 */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        @media (min-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr auto;
+                align-items: flex-end; /* 要素を下に揃える */
+            }
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .url-input, .category-select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>レコード出品アシスタント</h1>
         <p>Google Driveの親フォルダURLを入力して、出品データを生成します。</p>
         <form action="/process" method="POST">
-            <div class="form-group">
-                <label>Google Drive 親フォルダURL</label>
-                <input type="text" name="parentFolderUrl" class="url-input" placeholder="https://drive.google.com/drive/folders/..." required>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="parentFolderUrl">Google Drive 親フォルダURL</label>
+                    <input type="text" id="parentFolderUrl" name="parentFolderUrl" class="url-input" placeholder="https://drive.google.com/drive/folders/..." required>
+                </div>
+                <div class="form-group">
+                    <label for="defaultCategory">デフォルトカテゴリー</label>
+                    <select id="defaultCategory" name="defaultCategory" class="category-select">
+                        <% if (categories && categories.length > 0) { %>
+                            <% categories.forEach(category => { %>
+                                <option value="<%= category.code %>"><%= category.name %></option>
+                            <% }); %>
+                        <% } else { %>
+                            <option value="">カテゴリーを読み込めませんでした</option>
+                        <% } %>
+                    </select>
+                </div>
             </div>
             <button type="submit" class="btn">解析を開始</button>
         </form>
