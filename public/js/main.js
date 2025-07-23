@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
             `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`
         ).join('');
 
+        // カテゴリープルダウンを追加
+        const categoriesHtml = record.categories ? record.categories.map(cat => `<option value="${cat.code}">${cat.name}</option>`).join('') : '';
+
         return `
             <tr id="row-${record.id}" data-record-id="${record.id}" class="record-row">
                 <td class="status-cell">${isError ? `❌` : `<span id="status-${record.id}">...</span>`}</td>
@@ -44,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="info-input-group">
                         <label>タイトル</label>
                         <textarea name="title" rows="4" class="title-input">${title}</textarea>
-                        <div class="title-warning" style="display: none;">※80文字以上になっているため修正が必要です。</div>
+                        <div class="title-warning" style="display: none;"></div>
                     </div>
                 </td>
                 <td class="input-cell">
@@ -66,11 +69,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="input-section">
                         <div class="input-group"><label>ジャケットの状態</label><select name="conditionSleeve" ${isError ? 'disabled' : ''}>${conditionOptionsHtml.replace('value="なし"','value="Not Applicable"')}</select></div>
                         <div class="input-group"><label>レコードの状態</label><select name="conditionVinyl" ${isError ? 'disabled' : ''}>${conditionOptionsHtml.replace('value="なし"','value="Not Applicable"')}</select></div>
-                        <div class="input-group"><label>OBIの状態</label><select name="obi" ${isError ? 'disabled' : ''}>${conditionOptionsHtml}</select></div>
+                        <div class="input-group"><label>OBIの状態</label><select name="obi" class="obi-select" ${isError ? 'disabled' : ''}>${conditionOptionsHtml}</select></div>
                     </div>
                     <div class="input-group full-width">
                         <label>ジャケットのダメージについて</label>
                         <div class="checkbox-group">${damageCheckboxes}</div>
+                    </div>
+                    <h3 class="section-title">カテゴリー</h3>
+                     <div class="input-group full-width">
+                        <label>カテゴリー</label>
+                        <select name="category" ${isError ? 'disabled' : ''}>
+                           <option value="176985">Vinyl record</option>
+                           ${categoriesHtml}
+                        </select>
                     </div>
                     <div class="input-group full-width" style="margin-top: 15px;">
                         <label>コメント</label>
@@ -100,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             obi            : row.querySelector('[name="obi"]').value,
             jacketDamage   : jacketDamage,
             comment        : row.querySelector('[name="comment"]').value,
+            category       : row.querySelector('[name="category"]').value,
         };
 
         fetch(`/save/${sessionId}/${recordId}`, {
@@ -126,13 +138,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const titleInput   = row.querySelector('textarea[name="title"]');
         const titleWarning = row.querySelector('.title-warning');
+        const obiSelect    = row.querySelector('.obi-select');
 
         const checkTitleLength = () => {
-            titleWarning.style.display = titleInput.value.length > 80 ? 'block' : 'none';
+            const obiValue = obiSelect.value;
+            const maxLength = (obiValue === 'なし') ? 80 : 74;
+            if (titleInput.value.length > maxLength) {
+                titleWarning.textContent = `※${maxLength}文字の制限を超えています。`;
+                titleWarning.style.display = 'block';
+            } else {
+                titleWarning.style.display = 'none';
+            }
         };
 
         checkTitleLength();
         titleInput.addEventListener('input', checkTitleLength);
+        obiSelect.addEventListener('change', checkTitleLength);
     }
 
     modalClose.onclick = () => { modal.style.display = 'none'; };
@@ -147,6 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
             session.records.forEach(record => {
                 let row = document.getElementById(`row-${record.id}`);
                 if (!row && record.status !== 'pending') {
+                    // サーバーから渡されたカテゴリー情報をrecordに追加しておく
+                    record.categories = session.categories;
                     tableBody.insertAdjacentHTML('beforeend', createRow(record));
                     row = document.getElementById(`row-${record.id}`);
                     setupEventListeners(row);

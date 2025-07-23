@@ -1,6 +1,7 @@
 /* Router: record processing & CSV (eBay) */
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const { google } = require('googleapis'); // スプレッドシート用に追加
 const {
   getSubfolders,
   getProcessedSubfolders,
@@ -10,6 +11,32 @@ const {
   getDriveImageBuffer
 } = require('../services/googleDriveService');
 const { analyzeRecord } = require('../services/openAiService');
+
+const sheets = google.sheets('v4');
+const auth = new google.auth.GoogleAuth({
+    keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+});
+google.options({ auth });
+
+// スプレッドシートからカテゴリーを取得する関数
+async function getGoogleSheetData() {
+    try {
+        const res = await sheets.spreadsheets.values.get({
+            spreadsheetId: '1pGXjlYl29r1KIIPiIu0N4gXKdGquhIZe3UjH_QApwfA',
+            range: 'Category-レコード!A2:B',
+        });
+        const rows = res.data.values;
+        if (rows && rows.length) {
+            return rows.map(row => ({ name: row[0], code: row[1] }));
+        }
+        return [];
+    } catch (err) {
+        console.error('The API returned an error: ' + err);
+        throw new Error('Could not retrieve data from Google Sheet.');
+    }
+}
+
 
 /* ──────────────────────────
  * HTML description template
@@ -26,6 +53,15 @@ const descriptionTemplate = ({ ai, user }) => {
   const damageList = (user.jacketDamage ?? [])
     .map(d => `- ${damageMap[d] || d}`)
     .join('<br>');
+
+  const tracklistHtml = ai.Tracklist && Object.keys(ai.Tracklist).length > 0
+    ? `<h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">lists</h2>
+       <div style="column-count: 2; column-gap: 40px;">
+         <ul style="list-style: none; padding: 0; margin: 0;">
+           ${Object.entries(ai.Tracklist).map(([key, value]) => `<li style="line-height: 1.8;"><strong>${key}</strong> ${value}</li>`).join('')}
+         </ul>
+       </div>`
+    : '';
 
   return `
   <div style="font-family: Arial, sans-serif; max-width: 900px; margin: auto;">
@@ -71,6 +107,7 @@ const descriptionTemplate = ({ ai, user }) => {
         </tr>
       </tbody>
     </table>
+    ${tracklistHtml}
     <h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">Description</h2>
     <p>If you have any questions, feel free to contact us.<br>All my products are 100% Authentic.</p>
     <h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">Shipping</h2>
@@ -111,13 +148,13 @@ const generateCsv = records => {
     "C:Language","C:Occasion","C:Instrument","C:Era","C:Producer","C:Fidelity Level",
     "C:Composer","C:Conductor","C:Performer Orchestra","C:Run Time","C:MPN",
     "C:California Prop 65 Warning","C:Catalog Number","C:Number of Audio Channels",
-    "C:Unit Quantity","C:Unit Type","C:Vinyl Matrix Number","__keyValuePairs"
+    "C:Unit Quantity","C:Unit Type","C:Vinyl Matrix Number", "Created categories" // 修正
   ];
   const headerRow = header.map(h => `"${h.replace(/"/g, '""')}"`).join(',');
 
   const rows = records.filter(r => r.status === 'saved').map(r => {
     const { aiData: ai, userInput: user } = r;
-    const row = Array(header.length).fill('NA');
+    const row = Array(header.length).fill('');
 
     const picURL = [...r.images]
       .sort((a, b) => (order[prefixKey(a.name)] || 99) - (order[prefixKey(b.name)] || 99))
@@ -139,7 +176,7 @@ const generateCsv = records => {
     row[5]  = descriptionTemplate({ ai, user });
     row[6]  = ai.RecordLabel || '';
     row[7]  = picURL;
-    row[9]  = '176985';
+    row[9]  = user.category || '176985'; // 修正: カテゴリーを使用
     row[10] = '1';
     row[11] = 'payAddress';
     row[12] = 'buy it now';
@@ -148,16 +185,16 @@ const generateCsv = records => {
     row[15] = 'JP';
     row[16] = '417-0816, Fuji Shizuoka';
     row[17] = '41903496010';
-    row[18] = '0';              // Apply Profile Domestic
-    row[19] = '0';              // Apply Profile International
-    row[20] = '0';              // BuyerRequirements:LinkedPayPalAccount
+    row[18] = '0';
+    row[19] = '0';
+    row[20] = '0';
     row[21] = 'GTC';
     row[22] = 'FixedPriceItem';
     row[23] = '1';
     row[24] = 'USD';
     row[25] = 'US';
     row[26] = ai.Country || '';
-    row[27] = '0';              // BestOfferEnabled
+    row[27] = '0';
     row[28] = ai.Artist || '';
     row[29] = ai.Material || '';
     row[30] = finalTitle;
@@ -168,8 +205,9 @@ const generateCsv = records => {
     row[38] = ai.Released || '';
     row[39] = user.conditionVinyl  || '';
     row[40] = user.conditionSleeve || '';
-    row[46] = 'Japanese';
+    row[46] = 'Japan'; // 修正: Japanese -> Japan
     row[60] = ai.CatalogNumber || '';
+    row[66] = user.category || '176985'; // 修正: Created categories列
 
     return row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
   });
@@ -198,18 +236,21 @@ module.exports = sessions => {
     if (!parentFolderId) return res.status(400).send('Invalid Folder URL');
 
     const sessionId = uuidv4();
-    sessions.set(sessionId, { status: 'processing', records: [] });
+    sessions.set(sessionId, { status: 'processing', records: [], categories: [] }); // categoriesを追加
     res.render('results', { sessionId });
 
     try {
-      const [unproc, proc] = await Promise.all([
+      const [unproc, proc, categories] = await Promise.all([ // categoriesを取得
         getSubfolders(parentFolderId),
-        getProcessedSubfolders(parentFolderId)
+        getProcessedSubfolders(parentFolderId),
+        getGoogleSheetData()
       ]);
+      const session = sessions.get(sessionId);
+      session.categories = categories; // セッションに保存
 
       let counter = proc.length;
       const dateStr = getFormattedDate();
-      const session = sessions.get(sessionId);
+
       session.records = unproc.map(f => ({
         id: uuidv4(),
         folderId: f.id,
@@ -258,7 +299,8 @@ module.exports = sessions => {
       conditionVinyl:  req.body.conditionVinyl,
       obi:             req.body.obi,
       jacketDamage:    req.body.jacketDamage || [],
-      comment:         req.body.comment
+      comment:         req.body.comment,
+      category:        req.body.category, // categoryを追加
     };
     rec.status = 'saved';
 

@@ -4,7 +4,6 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-// プロンプトから "Subtitle" を削除
 const PROMPT_TEXT = `
 あなたはプロのアナログレコード鑑定士です。
 提供されたレコードのジャケットやラベルの画像から、Discogsのデータベースを参照して、このレコードを1件だけ特定してください。
