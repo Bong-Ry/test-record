@@ -6,56 +6,75 @@
     <title>レコード出品アシスタント</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* このページ専用のスタイルを追加 */
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 15px;
+        /* このページ専用のスタイル */
+        .header-container {
+            display: flex;
+            justify-content: space-between; /* 両端に寄せる */
+            align-items: center; /* 上下中央に揃える */
             margin-bottom: 20px;
         }
-        @media (min-width: 600px) {
-            .form-grid {
-                grid-template-columns: 1fr auto;
-                align-items: flex-end; /* 要素を下に揃える */
-            }
+        .header-container p {
+            margin: 0; /* pタグのデフォルトマージンをリセット */
+        }
+        .category-group {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* ラベルとプルダウンの間隔 */
+        }
+        .category-group label {
+            font-weight: 600;
+            white-space: nowrap; /* ラベルが折り返さないようにする */
+        }
+        .category-select {
+            padding: 5px 8px; /* プルダウンを小さくする */
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 20px;
         }
         .form-group label {
             display: block;
             margin-bottom: 5px;
             font-weight: 600;
         }
-        .url-input, .category-select {
+        .url-input {
             width: 100%;
             padding: 10px;
             font-size: 16px;
             border: 1px solid #ccc;
             border-radius: 4px;
+            box-sizing: border-box;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>レコード出品アシスタント</h1>
-        <p>Google Driveの親フォルダURLを入力して、出品データを生成します。</p>
+        
         <form action="/process" method="POST">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="parentFolderUrl">Google Drive 親フォルダURL</label>
-                    <input type="text" id="parentFolderUrl" name="parentFolderUrl" class="url-input" placeholder="https://drive.google.com/drive/folders/..." required>
-                </div>
-                <div class="form-group">
-                    <label for="defaultCategory">デフォルトカテゴリー</label>
+            <div class="header-container">
+                <p>Google Driveの親フォルダURLを入力して、出品データを生成します。</p>
+                <div class="category-group">
+                    <label for="defaultCategory">デフォルトカテゴリー:</label>
                     <select id="defaultCategory" name="defaultCategory" class="category-select">
                         <% if (categories && categories.length > 0) { %>
                             <% categories.forEach(category => { %>
                                 <option value="<%= category.code %>"><%= category.name %></option>
                             <% }); %>
                         <% } else { %>
-                            <option value="">カテゴリーを読み込めませんでした</option>
+                            <option value="">読込失敗</option>
                         <% } %>
                     </select>
                 </div>
             </div>
+
+            <div class="form-group">
+                <label for="parentFolderUrl">Google Drive 親フォルダURL</label>
+                <input type="text" id="parentFolderUrl" name="parentFolderUrl" class="url-input" placeholder="https://drive.google.com/drive/folders/..." required>
+            </div>
+
             <button type="submit" class="btn">解析を開始</button>
         </form>
     </div>
