@@ -29,7 +29,6 @@ async function getGoogleSheetData() {
         });
         const rows = res.data.values;
         if (rows && rows.length) {
-            // A列が空でない行のみをフィルタリング
             return rows.filter(row => row[0] && row[0].trim() !== '').map(row => ({ name: row[0], code: row[1] }));
         }
         return [];
@@ -56,14 +55,32 @@ const descriptionTemplate = ({ ai, user }) => {
     .map(d => `- ${damageMap[d] || d}`)
     .join('<br>');
 
-  const tracklistHtml = ai.Tracklist && Object.keys(ai.Tracklist).length > 0
-    ? `<h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">lists</h2>
-       <div style="column-count: 2; column-gap: 40px;">
-         <ul style="list-style: none; padding: 0; margin: 0;">
-           ${Object.entries(ai.Tracklist).map(([key, value]) => `<li style="line-height: 1.8;"><strong>${key}</strong> ${value}</li>`).join('')}
-         </ul>
-       </div>`
-    : '';
+  // 曲名リストの生成ロジックを修正
+  let tracklistHtml = '';
+  if (ai.Tracklist) {
+    let listItems = '';
+    // AIの返却データがオブジェクトの場合
+    if (typeof ai.Tracklist === 'object' && !Array.isArray(ai.Tracklist)) {
+        listItems = Object.entries(ai.Tracklist)
+            .map(([key, value]) => `<li style="line-height: 1.8;"><strong>${key}</strong> ${value}</li>`)
+            .join('');
+    } 
+    // AIの返却データが配列の場合
+    else if (Array.isArray(ai.Tracklist)) {
+        listItems = ai.Tracklist
+            .map(track => `<li style="line-height: 1.8;">${track}</li>`)
+            .join('');
+    }
+
+    if (listItems) {
+        tracklistHtml = `<h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">lists</h2>
+           <div style="column-count: 2; column-gap: 40px;">
+             <ul style="list-style: none; padding: 0; margin: 0;">
+               ${listItems}
+             </ul>
+           </div>`;
+    }
+  }
 
   return `
   <div style="font-family: Arial, sans-serif; max-width: 900px; margin: auto;">
@@ -133,27 +150,21 @@ const getFormattedDate = () => {
 /* ──────────────────────────
  * CSV builder
  * ────────────────────────── */
-// 並び順のルールを定義する関数
 const getSortKey = (name) => {
     const nameUpper = name.toUpperCase();
     let group = 99;
     let number = 0;
-
     const match = nameUpper.match(/^([MJR])(\d*)_/);
-
     if (match) {
         const letter = match[1];
         const numStr = match[2];
-
         if (letter === 'M') group = 1;
         if (letter === 'J') group = 2;
         if (letter === 'R') group = 3;
-
-        number = numStr ? parseInt(numStr, 10) : 0; // M_などは0として扱う
+        number = numStr ? parseInt(numStr, 10) : 0;
     }
     return { group, number };
 };
-
 
 const generateCsv = records => {
   const header = [
@@ -177,15 +188,11 @@ const generateCsv = records => {
     const { aiData: ai, userInput: user } = r;
     const row = Array(header.length).fill('');
 
-    // 新しい並び順ルールでソート
     const picURL = [...r.images]
       .sort((a, b) => {
           const keyA = getSortKey(a.name);
           const keyB = getSortKey(b.name);
-
-          if (keyA.group !== keyB.group) {
-              return keyA.group - keyB.group;
-          }
+          if (keyA.group !== keyB.group) return keyA.group - keyB.group;
           return keyA.number - keyB.number;
       })
       .map(img => img.url)
@@ -206,7 +213,7 @@ const generateCsv = records => {
     row[5]  = descriptionTemplate({ ai, user });
     row[6]  = ai.RecordLabel || '';
     row[7]  = picURL;
-    row[9]  = user.category || '176985';
+    row[9]  = '176985'; // 修正: Categoryは固定値
     row[10] = '1';
     row[11] = 'payAddress';
     row[12] = 'buy it now';
@@ -214,7 +221,7 @@ const generateCsv = records => {
     row[14] = shippingProfile;
     row[15] = 'JP';
     row[16] = '417-0816, Fuji Shizuoka';
-    row[17] = '41903496010';
+    row[17] = user.category || ''; // 修正: StoreCategoryに選択した値を入れる
     row[18] = '0';
     row[19] = '0';
     row[20] = '0';
@@ -237,7 +244,10 @@ const generateCsv = records => {
     row[40] = user.conditionSleeve || '';
     row[46] = 'Japan';
     row[60] = ai.CatalogNumber || '';
-    row[66] = user.category || '176985';
+    // Created categories はヘッダーにはありますが、eBayの仕様上、
+    // StoreCategory を使う場合はこちらは通常空にします。
+    // もし同じ値を入れる必要がある場合は user.category を設定します。
+    row[66] = ''; 
 
     return row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
   });
@@ -296,7 +306,6 @@ module.exports = sessions => {
             url: `https://drive.google.com/uc?export=download&id=${img.id}`
           }));
 
-          // AI解析用の画像（J1, J2, R1）をフィルタリング
           const analysisImages = imgs.filter(img =>
               img.name.toUpperCase().startsWith('J1_') ||
               img.name.toUpperCase().startsWith('J2_') ||
