@@ -1,4 +1,4 @@
-k/* Router: record processing & CSV (eBay) */
+/* Router: record processing & CSV (eBay) */
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { google } = require('googleapis'); // スプレッドシート用
