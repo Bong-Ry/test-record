@@ -55,30 +55,35 @@ const descriptionTemplate = ({ ai, user }) => {
     .map(d => `- ${damageMap[d] || d}`)
     .join('<br>');
 
-  // 曲名リストの生成ロジックを修正
+  // ★修正点: 曲名リストの生成ロジックを強化
   let tracklistHtml = '';
-  if (ai.Tracklist) {
+  if (ai && ai.Tracklist) {
     let listItems = '';
-    // AIの返却データがオブジェクトの場合
-    if (typeof ai.Tracklist === 'object' && !Array.isArray(ai.Tracklist)) {
-        listItems = Object.entries(ai.Tracklist)
-            .map(([key, value]) => `<li style="line-height: 1.8;"><strong>${key}</strong> ${value}</li>`)
+    const tracklist = ai.Tracklist;
+
+    // Case 1: Tracklistがキーと値を持つオブジェクトの場合 (最も期待する形式)
+    if (typeof tracklist === 'object' && !Array.isArray(tracklist) && Object.keys(tracklist).length > 0) {
+        listItems = Object.entries(tracklist)
+            .map(([key, value]) => `<li style="line-height: 1.8;"><strong>${key}</strong> ${value || ''}</li>`)
             .join('');
-    } 
-    // AIの返却データが配列の場合
-    else if (Array.isArray(ai.Tracklist)) {
-        listItems = ai.Tracklist
-            .map(track => `<li style="line-height: 1.8;">${track}</li>`)
-            .join('');
+    }
+    // Case 2: Tracklistが文字列の配列の場合
+    else if (Array.isArray(tracklist) && tracklist.every(item => typeof item === 'string')) {
+        listItems = tracklist.map(track => `<li style="line-height: 1.8;">${track}</li>`).join('');
+    }
+    // Case 3: Tracklistが1つの長い文字列の場合 (改行で分割)
+    else if (typeof tracklist === 'string') {
+        listItems = tracklist.split('\n').filter(line => line.trim() !== '').map(line => `<li style="line-height: 1.8;">${line.trim()}</li>`).join('');
     }
 
     if (listItems) {
-        tracklistHtml = `<h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">lists</h2>
-           <div style="column-count: 2; column-gap: 40px;">
-             <ul style="list-style: none; padding: 0; margin: 0;">
-               ${listItems}
-             </ul>
-           </div>`;
+        tracklistHtml = `
+          <h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">Tracklist</h2>
+          <div style="column-count: 2; column-gap: 40px;">
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${listItems}
+            </ul>
+          </div>`;
     }
   }
 
@@ -208,12 +213,12 @@ const generateCsv = records => {
     row[0]  = 'Add';
     row[1]  = r.customLabel;
     row[2]  = user.price || '';
-    row[3]  = user.productCondition === '新品' ? '1000' : '3000'; // ★変更点
+    row[3]  = user.productCondition === '新品' ? '1000' : '3000';
     row[4]  = finalTitle;
     row[5]  = descriptionTemplate({ ai, user });
     row[6]  = ai.RecordLabel || '';
     row[7]  = picURL;
-    row[9]  = '176985'; // 修正: Categoryは固定値
+    row[9]  = '176985';
     row[10] = '1';
     row[11] = 'payAddress';
     row[12] = 'buy it now';
@@ -221,7 +226,7 @@ const generateCsv = records => {
     row[14] = shippingProfile;
     row[15] = 'JP';
     row[16] = '417-0816, Fuji Shizuoka';
-    row[17] = user.category || ''; // 修正: StoreCategoryに選択した値を入れる
+    row[17] = user.category || '';
     row[18] = '0';
     row[19] = '0';
     row[20] = '0';
@@ -244,10 +249,7 @@ const generateCsv = records => {
     row[40] = user.conditionSleeve || '';
     row[46] = 'Japan';
     row[60] = ai.CatalogNumber || '';
-    // Created categories はヘッダーにはありますが、eBayの仕様上、
-    // StoreCategory を使う場合はこちらは通常空にします。
-    // もし同じ値を入れる必要がある場合は user.category を設定します。
-    row[66] = ''; 
+    row[66] = '';
 
     return row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
   });
@@ -342,7 +344,7 @@ module.exports = sessions => {
       title:            req.body.title,
       price:            req.body.price,
       shipping:         req.body.shipping,
-      productCondition: req.body.productCondition, // ★追加
+      productCondition: req.body.productCondition,
       conditionSleeve:  req.body.conditionSleeve,
       conditionVinyl:   req.body.conditionVinyl,
       obi:              req.body.obi,
