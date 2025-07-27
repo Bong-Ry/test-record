@@ -66,6 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <option value="32USD">32USD</option>
                             </select>
                         </div>
+                        <div class="input-group">
+                            <label>商品の状態</label>
+                            <select name="productCondition" ${isError ? 'disabled' : ''}>
+                                <option value="中古">中古</option>
+                                <option value="新品">新品</option>
+                            </select>
+                        </div>
                     </div>
                     <h3 class="section-title">状態</h3>
                     <div class="input-section">
@@ -104,15 +111,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const jacketDamage      = Array.from(jacketDamageNodes).map(node => node.value);
 
         const data = {
-            title:           row.querySelector('[name="title"]').value,
-            price:           row.querySelector(`input[name="price-${recordId}"]:checked`).value,
-            shipping:        row.querySelector('[name="shipping"]').value,
-            conditionSleeve: row.querySelector('[name="conditionSleeve"]').value,
-            conditionVinyl:  row.querySelector('[name="conditionVinyl"]').value,
-            obi:             row.querySelector('[name="obi"]').value,
-            jacketDamage:    jacketDamage,
-            comment:         row.querySelector('[name="comment"]').value,
-            category:        row.querySelector('[name="category"]').value,
+            title:            row.querySelector('[name="title"]').value,
+            price:            row.querySelector(`input[name="price-${recordId}"]:checked`).value,
+            shipping:         row.querySelector('[name="shipping"]').value,
+            productCondition: row.querySelector('[name="productCondition"]').value, // ★追加
+            conditionSleeve:  row.querySelector('[name="conditionSleeve"]').value,
+            conditionVinyl:   row.querySelector('[name="conditionVinyl"]').value,
+            obi:              row.querySelector('[name="obi"]').value,
+            jacketDamage:     jacketDamage,
+            comment:          row.querySelector('[name="comment"]').value,
+            category:         row.querySelector('[name="category"]').value,
         };
 
         fetch(`/save/${sessionId}/${recordId}`, {

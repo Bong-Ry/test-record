@@ -1,4 +1,4 @@
-/* Router: record processing & CSV (eBay) */
+k/* Router: record processing & CSV (eBay) */
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { google } = require('googleapis'); // スプレッドシート用
@@ -208,7 +208,7 @@ const generateCsv = records => {
     row[0]  = 'Add';
     row[1]  = r.customLabel;
     row[2]  = user.price || '';
-    row[3]  = '3000';
+    row[3]  = user.productCondition === '新品' ? '1000' : '3000'; // ★変更点
     row[4]  = finalTitle;
     row[5]  = descriptionTemplate({ ai, user });
     row[6]  = ai.RecordLabel || '';
@@ -339,15 +339,16 @@ module.exports = sessions => {
     if (!rec) return res.status(404).json({ error: 'Record not found' });
 
     rec.userInput = {
-      title:           req.body.title,
-      price:           req.body.price,
-      shipping:        req.body.shipping,
-      conditionSleeve: req.body.conditionSleeve,
-      conditionVinyl:  req.body.conditionVinyl,
-      obi:             req.body.obi,
-      jacketDamage:    req.body.jacketDamage || [],
-      comment:         req.body.comment,
-      category:        req.body.category,
+      title:            req.body.title,
+      price:            req.body.price,
+      shipping:         req.body.shipping,
+      productCondition: req.body.productCondition, // ★追加
+      conditionSleeve:  req.body.conditionSleeve,
+      conditionVinyl:   req.body.conditionVinyl,
+      obi:              req.body.obi,
+      jacketDamage:     req.body.jacketDamage || [],
+      comment:          req.body.comment,
+      category:         req.body.category,
     };
     rec.status = 'saved';
 

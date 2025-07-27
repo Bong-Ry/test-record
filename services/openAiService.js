@@ -19,7 +19,7 @@ const PROMPT_TEXT = `
 - Format: "Vinyl, LP, Album, Reissue" のような詳細なフォーマット。
 - Country: リリース国。
 - Released: リリース年。
-- Tracklist: A1, A2, B1, B2...の形式で全トラックリストを記載。曲名も必ず英語に翻訳してください。
+- Tracklist: A1, A2, B1, B2...の形式で全トラックリストを記載してください。曲名も必ず英語に翻訳してください。
 - Notes: Discogsに記載されている特記事項。
 - DiscogsUrl: 特定したDiscogsのURL。
 - MPN: カタログ番号と同じで可。
