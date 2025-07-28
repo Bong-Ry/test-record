@@ -16,7 +16,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageUrl  = mainImage ? `/image/${mainImage.id}` : 'https://via.placeholder.com/120';
 
         const sku       = record.customLabel || '';
-        const title     = record.aiData?.Title || 'N/A';
+        // ②CSV出力のタイトルについて (start)
+        const title = (record.aiData?.Title && record.aiData?.Artist)
+            ? `${record.aiData.Title} ${record.aiData.Artist}`
+            : (record.aiData?.Title || 'N/A');
+        // ②CSV出力のタイトルについて (end)
         const isError   = record.status === 'error';
 
         const conditionOptions      = ['NM', 'EX', 'VG+', 'VG', 'G', 'なし'];
@@ -36,6 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const categoriesHtml = record.categories ? record.categories.map(cat =>
             `<option value="${cat.code}" ${cat.code === defaultCategory ? 'selected' : ''}>${cat.name}</option>`
         ).join('') : '';
+
+        // ①送料のプルダウンについて (start)
+        const shippingOptionsHtml = shippingOptions.map(opt => `<option value="${opt}">${opt}USD</option>`).join('');
+        // ①送料のプルダウンについて (end)
 
         return `
             <tr id="row-${record.id}" data-record-id="${record.id}" class="record-row">
@@ -61,9 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="input-group">
                             <label>送料</label>
                             <select name="shipping" ${isError ? 'disabled' : ''}>
-                                <option value="15USD">15USD</option>
-                                <option value="25USD">25USD</option>
-                                <option value="32USD">32USD</option>
+                                ${shippingOptionsHtml}
                             </select>
                         </div>
                         <div class="input-group">

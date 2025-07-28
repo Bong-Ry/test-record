@@ -14,15 +14,18 @@
             <p id="progress-text">処理中です。しばらくお待ちください…</p>
         </div>
         <div id="results-table-container" style="display: none;">
-            <a href="#" id="download-csv-btn" class="btn btn-download" style="display: none;">CSVダウンロード</a>
+      
+          <a href="#" id="download-csv-btn" class="btn btn-download" style="display: none;">CSVダウンロード</a>
             <table id="results-table">
                 <thead>
                     <tr>
                         <th style="width: 5%;">状態</th>
-                        <th style="width: 15%;">画像</th>
+             
+                       <th style="width: 15%;">画像</th>
                         <th style="width: 30%;">タイトル</th>
                         <th style="width: 45%;">詳細入力</th>
                         <th style="width: 5%;">操作</th>
+         
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -35,11 +38,16 @@
         <img class="modal-content" id="modal-image">
     </div>
 
+    
     <script>
         const sessionId = "<%= sessionId %>";
         // サーバーから渡されたデフォルトカテゴリーの値をJavaScript変数に格納
         const defaultCategory = "<%= defaultCategory %>";
+        // ①送料のプルダウンについて (start)
+        const shippingOptions = <%- JSON.stringify(shippingOptions || []) %>;
+        // ①送料のプルダウンについて (end)
     </script>
     <script src="/js/main.js"></script>
 </body>
 </html>
+

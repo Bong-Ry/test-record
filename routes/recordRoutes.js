@@ -38,6 +38,26 @@ async function getGoogleSheetData() {
     }
 }
 
+// ①送料のプルダウンについて (start)
+// スプレッドシートから送料を取得する関数
+async function getShippingOptionsFromGoogleSheet() {
+    try {
+        const res = await sheets.spreadsheets.values.get({
+            spreadsheetId: '1pGXjlYl29r1KIIPiIu0N4gXKdGquhIZe3UjH_QApwfA',
+            range: '送料管理!A2:A',
+        });
+        const rows = res.data.values;
+        if (rows && rows.length) {
+            return rows.flat().filter(row => row && row.trim() !== '');
+        }
+        return [];
+    } catch (err) {
+        console.error('The API returned an error: ' + err);
+        throw new Error('Could not retrieve shipping options from Google Sheet.');
+    }
+}
+// ①送料のプルダウンについて (end)
+
 
 /* ──────────────────────────
  * HTML description template
@@ -87,6 +107,16 @@ const descriptionTemplate = ({ ai, user }) => {
     }
   }
 
+  // ③コメントに記載した内容 (start)
+  let commentHtml = '';
+  if (user.comment) {
+      commentHtml = `
+        <h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">Comment</h2>
+        <p>${user.comment.replace(/\n/g, '<br>')}</p>
+      `;
+  }
+  // ③コメントに記載した内容 (end)
+
   return `
   <div style="font-family: Arial, sans-serif; max-width: 900px; margin: auto;">
     <h1 style="font-size: 24px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
@@ -132,6 +162,7 @@ const descriptionTemplate = ({ ai, user }) => {
       </tbody>
     </table>
     ${tracklistHtml}
+    ${commentHtml}
     <h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">Description</h2>
     <p>If you have any questions, feel free to contact us.<br>All my products are 100% Authentic.</p>
     <h2 style="font-size: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 40px;">Shipping</h2>
@@ -203,12 +234,14 @@ const generateCsv = records => {
       .map(img => img.url)
       .join('|');
 
-    const baseTitle = user.title || ai.Title || '';
+    // ②CSV出力のタイトルについて (start)
+    const baseTitle = user.title || (ai.Title && ai.Artist ? `${ai.Title} ${ai.Artist}` : ai.Title || '');
+    // ②CSV出力のタイトルについて (end)
     const finalTitle = (user.obi && user.obi !== 'なし')
       ? (baseTitle.includes('w/OBI') ? baseTitle : `${baseTitle} w/OBI`)
       : baseTitle;
 
-    const shippingProfile = user.shipping ? `#${user.shipping}-DHL FedEx 00.00 - 06.50kg` : '';
+    const shippingProfile = user.shipping ? `#${user.shipping}USD-DHL FedEx 00.00 - 06.50kg` : '';
 
     row[0]  = 'Add';
     row[1]  = r.customLabel;
@@ -278,8 +311,11 @@ module.exports = sessions => {
     if (!parentFolderId) return res.status(400).send('Invalid Folder URL');
 
     const sessionId = uuidv4();
-    sessions.set(sessionId, { status: 'processing', records: [], categories: [], defaultCategory: defaultCategory });
-    res.render('results', { sessionId: sessionId, defaultCategory: defaultCategory });
+    // ①送料のプルダウンについて (start)
+    const shippingOptions = await getShippingOptionsFromGoogleSheet();
+    sessions.set(sessionId, { status: 'processing', records: [], categories: [], shippingOptions: shippingOptions, defaultCategory: defaultCategory });
+    res.render('results', { sessionId: sessionId, defaultCategory: defaultCategory, shippingOptions: shippingOptions });
+    // ①送料のプルダウンについて (end)
 
     try {
       const [unproc, proc, categories] = await Promise.all([
