@@ -16,11 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageUrl  = mainImage ? `/image/${mainImage.id}` : 'https://via.placeholder.com/120';
 
         const sku       = record.customLabel || '';
-        // ②CSV出力のタイトルについて (start)
         const title = (record.aiData?.Title && record.aiData?.Artist)
             ? `${record.aiData.Title} ${record.aiData.Artist}`
             : (record.aiData?.Title || 'N/A');
-        // ②CSV出力のタイトルについて (end)
         const isError   = record.status === 'error';
 
         const conditionOptions      = ['NM', 'EX', 'VG+', 'VG', 'G', 'なし'];
@@ -31,10 +29,19 @@ document.addEventListener('DOMContentLoaded', () => {
             `<label class="checkbox-label"><input type="checkbox" name="jacketDamage" value="${opt}" ${isError ? 'disabled' : ''}> ${opt}</label>`
         ).join('');
 
+        // ③価格のラジオボタンについて (start)
         const priceOptions = ['39.99', '29.99', '59.99', '79.99', '99.99'];
-        const priceRadios  = priceOptions.map((price, index) =>
+        let priceRadios  = priceOptions.map((price, index) =>
             `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`
         ).join('');
+        // 「その他」のラジオボタンと入力欄を追加
+        priceRadios += `
+            <label class="radio-label">
+                <input type="radio" name="price-${record.id}" value="other" ${isError ? 'disabled' : ''}> その他
+                <input type="number" name="other-price-${record.id}" class="other-price-input" placeholder="価格を入力" style="display: none;" ${isError ? 'disabled' : ''}>
+            </label>
+        `;
+        // ③価格のラジオボタンについて (end)
 
         // サーバーから渡されたカテゴリー情報とデフォルトカテゴリーを使ってプルダウンを生成
         const categoriesHtml = record.categories ? record.categories.map(cat =>
@@ -42,7 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ).join('') : '';
 
         // ①送料のプルダウンについて (start)
-        const shippingOptionsHtml = shippingOptions.map(opt => `<option value="${opt}">${opt}USD</option>`).join('');
+        // USDを削除し、スプレッドシートの値をそのまま表示
+        const shippingOptionsHtml = shippingOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('');
         // ①送料のプルダウンについて (end)
 
         return `
@@ -116,11 +124,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const jacketDamageNodes = row.querySelectorAll('input[name="jacketDamage"]:checked');
         const jacketDamage      = Array.from(jacketDamageNodes).map(node => node.value);
 
+        // ③価格のラジオボタンについて (start)
+        const selectedPriceRadio = row.querySelector(`input[name="price-${recordId}"]:checked`);
+        let price;
+        if (selectedPriceRadio.value === 'other') {
+            price = row.querySelector(`input[name="other-price-${recordId}"]`).value;
+        } else {
+            price = selectedPriceRadio.value;
+        }
+        // ③価格のラジオボタンについて (end)
+
         const data = {
             title:            row.querySelector('[name="title"]').value,
-            price:            row.querySelector(`input[name="price-${recordId}"]:checked`).value,
+            price:            price, // 修正後の価格
             shipping:         row.querySelector('[name="shipping"]').value,
-            productCondition: row.querySelector('[name="productCondition"]').value, // ★追加
+            productCondition: row.querySelector('[name="productCondition"]').value,
             conditionSleeve:  row.querySelector('[name="conditionSleeve"]').value,
             conditionVinyl:   row.querySelector('[name="conditionVinyl"]').value,
             obi:              row.querySelector('[name="obi"]').value,
@@ -169,6 +187,22 @@ document.addEventListener('DOMContentLoaded', () => {
         checkTitleLength();
         titleInput.addEventListener('input', checkTitleLength);
         obiSelect.addEventListener('change', checkTitleLength);
+
+        // ③価格のラジオボタンについて (start)
+        // 「その他」価格入力のイベントリスナー
+        const recordId = row.dataset.recordId;
+        const priceRadios = row.querySelectorAll(`input[name="price-${recordId}"]`);
+        const otherPriceInput = row.querySelector(`input[name="other-price-${recordId}"]`);
+        priceRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'other') {
+                    otherPriceInput.style.display = 'inline-block';
+                } else {
+                    otherPriceInput.style.display = 'none';
+                }
+            });
+        });
+        // ③価格のラジオボタンについて (end)
     }
 
     modalClose.onclick = () => { modal.style.display = 'none'; };
@@ -183,7 +217,6 @@ document.addEventListener('DOMContentLoaded', () => {
             session.records.forEach(record => {
                 let row = document.getElementById(`row-${record.id}`);
                 if (!row && record.status !== 'pending') {
-                    // サーバーから渡されたカテゴリー情報をrecordに追加しておく
                     record.categories = session.categories;
                     tableBody.insertAdjacentHTML('beforeend', createRow(record));
                     row = document.getElementById(`row-${record.id}`);

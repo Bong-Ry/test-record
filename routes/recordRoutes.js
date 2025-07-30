@@ -38,7 +38,6 @@ async function getGoogleSheetData() {
     }
 }
 
-// ①送料のプルダウンについて (start)
 // スプレッドシートから送料を取得する関数
 async function getShippingOptionsFromGoogleSheet() {
     try {
@@ -48,7 +47,10 @@ async function getShippingOptionsFromGoogleSheet() {
         });
         const rows = res.data.values;
         if (rows && rows.length) {
+            // ②CSV出力のタイトルについて (start)
+            // スプレッドシートの値をそのまま返すように修正
             return rows.flat().filter(row => row && row.trim() !== '');
+            // ②CSV出力のタイトルについて (end)
         }
         return [];
     } catch (err) {
@@ -56,7 +58,6 @@ async function getShippingOptionsFromGoogleSheet() {
         throw new Error('Could not retrieve shipping options from Google Sheet.');
     }
 }
-// ①送料のプルダウンについて (end)
 
 
 /* ──────────────────────────
@@ -75,23 +76,19 @@ const descriptionTemplate = ({ ai, user }) => {
     .map(d => `- ${damageMap[d] || d}`)
     .join('<br>');
 
-  // ★修正点: 曲名リストの生成ロジックを強化
   let tracklistHtml = '';
   if (ai && ai.Tracklist) {
     let listItems = '';
     const tracklist = ai.Tracklist;
 
-    // Case 1: Tracklistがキーと値を持つオブジェクトの場合 (最も期待する形式)
     if (typeof tracklist === 'object' && !Array.isArray(tracklist) && Object.keys(tracklist).length > 0) {
         listItems = Object.entries(tracklist)
             .map(([key, value]) => `<li style="line-height: 1.8;"><strong>${key}</strong> ${value || ''}</li>`)
             .join('');
     }
-    // Case 2: Tracklistが文字列の配列の場合
     else if (Array.isArray(tracklist) && tracklist.every(item => typeof item === 'string')) {
         listItems = tracklist.map(track => `<li style="line-height: 1.8;">${track}</li>`).join('');
     }
-    // Case 3: Tracklistが1つの長い文字列の場合 (改行で分割)
     else if (typeof tracklist === 'string') {
         listItems = tracklist.split('\n').filter(line => line.trim() !== '').map(line => `<li style="line-height: 1.8;">${line.trim()}</li>`).join('');
     }
@@ -234,14 +231,15 @@ const generateCsv = records => {
       .map(img => img.url)
       .join('|');
 
-    // ②CSV出力のタイトルについて (start)
     const baseTitle = user.title || (ai.Title && ai.Artist ? `${ai.Title} ${ai.Artist}` : ai.Title || '');
-    // ②CSV出力のタイトルについて (end)
     const finalTitle = (user.obi && user.obi !== 'なし')
       ? (baseTitle.includes('w/OBI') ? baseTitle : `${baseTitle} w/OBI`)
       : baseTitle;
 
-    const shippingProfile = user.shipping ? `#${user.shipping}USD-DHL FedEx 00.00 - 06.50kg` : '';
+    // ②送料のスプシ出力時の変更 (start)
+    // ユーザーが選択した送料の値をそのまま使用する
+    const shippingProfile = user.shipping || '';
+    // ②送料のスプシ出力時の変更 (end)
 
     row[0]  = 'Add';
     row[1]  = r.customLabel;
@@ -311,11 +309,9 @@ module.exports = sessions => {
     if (!parentFolderId) return res.status(400).send('Invalid Folder URL');
 
     const sessionId = uuidv4();
-    // ①送料のプルダウンについて (start)
     const shippingOptions = await getShippingOptionsFromGoogleSheet();
     sessions.set(sessionId, { status: 'processing', records: [], categories: [], shippingOptions: shippingOptions, defaultCategory: defaultCategory });
     res.render('results', { sessionId: sessionId, defaultCategory: defaultCategory, shippingOptions: shippingOptions });
-    // ①送料のプルダウンについて (end)
 
     try {
       const [unproc, proc, categories] = await Promise.all([
