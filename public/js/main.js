@@ -29,19 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
             `<label class="checkbox-label"><input type="checkbox" name="jacketDamage" value="${opt}" ${isError ? 'disabled' : ''}> ${opt}</label>`
         ).join('');
 
-        // ★スクリーンショットに合わせて価格オプションとレイアウトを修正
-        const priceOptions = ['29.99', '39.99', '59.99', '79.99'];
-        let priceRadios  = priceOptions.map((price, index) =>
+        // ★ cd-listerの仕様に合わせて価格オプションを完全に再現 ★
+        const priceOptions = ['29.99', '39.99', '59.99', '79.99', '99.99'];
+        const priceRadios  = priceOptions.map((price, index) =>
             `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`
-        ).join('');
-        // 「その他」のラジオボタンと入力欄を同じラベル内に入れて横並びにする
-        priceRadios += `
-            <label class="radio-label">
-                <input type="radio" name="price-${record.id}" value="other" ${isError ? 'disabled' : ''}> その他
-                <input type="number" name="other-price-${record.id}" class="other-price-input" placeholder="価格" style="display: none;" ${isError ? 'disabled' : ''}>
-                <span class="currency-label" style="display: none;">USD</span>
-            </label>
-        `;
+        ).join('') 
+        + `<label class="radio-label"><input type="radio" name="price-${record.id}" value="other" ${isError ? 'disabled' : ''}> その他</label>`
+        + `<input type="number" name="price-other-${record.id}" class="other-price-input" style="display:none;" placeholder="価格" ${isError ? 'disabled' : ''}>`;
 
         const categoriesHtml = record.categories ? record.categories.map(cat =>
             `<option value="${cat.code}" ${cat.code === defaultCategory ? 'selected' : ''}>${cat.name}</option>`
@@ -120,12 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const jacketDamageNodes = row.querySelectorAll('input[name="jacketDamage"]:checked');
         const jacketDamage      = Array.from(jacketDamageNodes).map(node => node.value);
 
-        const selectedPriceRadio = row.querySelector(`input[name="price-${recordId}"]:checked`);
+        // ★ cd-listerの仕様に合わせて「その他」価格の取得方法を修正 ★
+        const priceRadio = row.querySelector(`input[name="price-${recordId}"]:checked`);
         let price;
-        if (selectedPriceRadio.value === 'other') {
-            price = row.querySelector(`input[name="other-price-${recordId}"]`).value;
+        if (priceRadio.value === 'other') {
+            price = row.querySelector(`input[name="price-other-${recordId}"]`).value;
         } else {
-            price = selectedPriceRadio.value;
+            price = priceRadio.value;
         }
 
         const data = {
@@ -155,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
+    
     function setupEventListeners(row) {
         row.querySelector('.btn-save').addEventListener('click', handleSave);
         row.querySelector('.main-record-image').addEventListener('click', e => {
@@ -182,17 +177,17 @@ document.addEventListener('DOMContentLoaded', () => {
         titleInput.addEventListener('input', checkTitleLength);
         obiSelect.addEventListener('change', checkTitleLength);
 
-        // 「その他」価格入力欄の表示/非表示をJSで制御
+        // ★ cd-listerの仕様に合わせて「その他」価格の表示・非表示を制御 ★
         const recordId = row.dataset.recordId;
         const priceRadios = row.querySelectorAll(`input[name="price-${recordId}"]`);
-        const otherPriceInput = row.querySelector(`input[name="other-price-${recordId}"]`);
-        const currencyLabel = row.querySelector('.currency-label');
-
+        const otherPriceInput = row.querySelector(`input[name="price-other-${recordId}"]`);
         priceRadios.forEach(radio => {
             radio.addEventListener('change', () => {
-                const isOther = radio.value === 'other';
-                otherPriceInput.style.display = isOther ? 'inline-block' : 'none';
-                currencyLabel.style.display = isOther ? 'inline-block' : 'none';
+                if (radio.value === 'other') {
+                    otherPriceInput.style.display = 'inline-block';
+                } else {
+                    otherPriceInput.style.display = 'none';
+                }
             });
         });
     }
