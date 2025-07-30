@@ -29,29 +29,26 @@ document.addEventListener('DOMContentLoaded', () => {
             `<label class="checkbox-label"><input type="checkbox" name="jacketDamage" value="${opt}" ${isError ? 'disabled' : ''}> ${opt}</label>`
         ).join('');
 
-        // ③価格のラジオボタンについて (start)
+        // ③価格のラジオボタンについて
         const priceOptions = ['39.99', '29.99', '59.99', '79.99', '99.99'];
         let priceRadios  = priceOptions.map((price, index) =>
             `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`
         ).join('');
-        // 「その他」のラジオボタンと入力欄を追加
+        // 「その他」のラジオボタンと入力欄を追加（入力欄にはCSS適用のためクラスを付与）
         priceRadios += `
             <label class="radio-label">
                 <input type="radio" name="price-${record.id}" value="other" ${isError ? 'disabled' : ''}> その他
-                <input type="number" name="other-price-${record.id}" class="other-price-input" placeholder="価格を入力" style="display: none;" ${isError ? 'disabled' : ''}>
             </label>
+            <input type="number" name="other-price-${record.id}" class="other-price-input" placeholder="価格を入力" style="display: none;" ${isError ? 'disabled' : ''}>
         `;
-        // ③価格のラジオボタンについて (end)
 
         // サーバーから渡されたカテゴリー情報とデフォルトカテゴリーを使ってプルダウンを生成
         const categoriesHtml = record.categories ? record.categories.map(cat =>
             `<option value="${cat.code}" ${cat.code === defaultCategory ? 'selected' : ''}>${cat.name}</option>`
         ).join('') : '';
 
-        // ①送料のプルダウンについて (start)
-        // USDを削除し、スプレッドシートの値をそのまま表示
+        // ①送料のプルダウンについて（スプレッドシートの値をそのまま表示）
         const shippingOptionsHtml = shippingOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('');
-        // ①送料のプルダウンについて (end)
 
         return `
             <tr id="row-${record.id}" data-record-id="${record.id}" class="record-row">
@@ -124,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const jacketDamageNodes = row.querySelectorAll('input[name="jacketDamage"]:checked');
         const jacketDamage      = Array.from(jacketDamageNodes).map(node => node.value);
 
-        // ③価格のラジオボタンについて (start)
+        // ③価格のラジオボタンについて（「その他」が選択された場合の処理）
         const selectedPriceRadio = row.querySelector(`input[name="price-${recordId}"]:checked`);
         let price;
         if (selectedPriceRadio.value === 'other') {
@@ -132,12 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             price = selectedPriceRadio.value;
         }
-        // ③価格のラジオボタンについて (end)
 
         const data = {
             title:            row.querySelector('[name="title"]').value,
             price:            price, // 修正後の価格
-            shipping:         row.querySelector('[name="shipping"]').value,
+            shipping:         row.querySelector('[name="shipping"]').value, // ②送料は選択された値をそのまま使用
             productCondition: row.querySelector('[name="productCondition"]').value,
             conditionSleeve:  row.querySelector('[name="conditionSleeve"]').value,
             conditionVinyl:   row.querySelector('[name="conditionVinyl"]').value,
@@ -188,21 +184,23 @@ document.addEventListener('DOMContentLoaded', () => {
         titleInput.addEventListener('input', checkTitleLength);
         obiSelect.addEventListener('change', checkTitleLength);
 
-        // ③価格のラジオボタンについて (start)
-        // 「その他」価格入力のイベントリスナー
+        // ★★★ここからがJavaScriptによる制御部分です★★★
+        // 「その他」価格入力欄の表示/非表示を制御するイベントリスナー
         const recordId = row.dataset.recordId;
         const priceRadios = row.querySelectorAll(`input[name="price-${recordId}"]`);
         const otherPriceInput = row.querySelector(`input[name="other-price-${recordId}"]`);
+
         priceRadios.forEach(radio => {
             radio.addEventListener('change', () => {
+                // 「その他」が選択されたら入力欄を表示
                 if (radio.value === 'other') {
                     otherPriceInput.style.display = 'inline-block';
                 } else {
+                // それ以外が選択されたら入力欄を非表示
                     otherPriceInput.style.display = 'none';
                 }
             });
         });
-        // ③価格のラジオボタンについて (end)
     }
 
     modalClose.onclick = () => { modal.style.display = 'none'; };

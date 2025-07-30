@@ -38,7 +38,8 @@ async function getGoogleSheetData() {
     }
 }
 
-// スプレッドシートから送料を取得する関数
+// ①送料のプルダウン & ②送料のスプシ出力時の変更
+// スプレッドシートから送料を取得する関数（値をそのまま返す）
 async function getShippingOptionsFromGoogleSheet() {
     try {
         const res = await sheets.spreadsheets.values.get({
@@ -47,10 +48,7 @@ async function getShippingOptionsFromGoogleSheet() {
         });
         const rows = res.data.values;
         if (rows && rows.length) {
-            // ②CSV出力のタイトルについて (start)
-            // スプレッドシートの値をそのまま返すように修正
             return rows.flat().filter(row => row && row.trim() !== '');
-            // ②CSV出力のタイトルについて (end)
         }
         return [];
     } catch (err) {
@@ -104,7 +102,6 @@ const descriptionTemplate = ({ ai, user }) => {
     }
   }
 
-  // ③コメントに記載した内容 (start)
   let commentHtml = '';
   if (user.comment) {
       commentHtml = `
@@ -112,7 +109,6 @@ const descriptionTemplate = ({ ai, user }) => {
         <p>${user.comment.replace(/\n/g, '<br>')}</p>
       `;
   }
-  // ③コメントに記載した内容 (end)
 
   return `
   <div style="font-family: Arial, sans-serif; max-width: 900px; margin: auto;">
@@ -236,14 +232,12 @@ const generateCsv = records => {
       ? (baseTitle.includes('w/OBI') ? baseTitle : `${baseTitle} w/OBI`)
       : baseTitle;
 
-    // ②送料のスプシ出力時の変更 (start)
-    // ユーザーが選択した送料の値をそのまま使用する
+    // ②送料のスプシ出力時の変更（ユーザーが選択した送料をそのまま使用）
     const shippingProfile = user.shipping || '';
-    // ②送料のスプシ出力時の変更 (end)
 
     row[0]  = 'Add';
     row[1]  = r.customLabel;
-    row[2]  = user.price || '';
+    row[2]  = user.price || ''; // ③価格はフロントエンドで処理済みの値を使用
     row[3]  = user.productCondition === '新品' ? '1000' : '3000';
     row[4]  = finalTitle;
     row[5]  = descriptionTemplate({ ai, user });
@@ -254,7 +248,7 @@ const generateCsv = records => {
     row[11] = 'payAddress';
     row[12] = 'buy it now';
     row[13] = 'Seller 60days';
-    row[14] = shippingProfile;
+    row[14] = shippingProfile; // ここに送料が入る
     row[15] = 'JP';
     row[16] = '417-0816, Fuji Shizuoka';
     row[17] = user.category || '';
