@@ -53,8 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="info-input-group">
                         <label>タイトル</label>
                         <textarea name="title" rows="3" class="title-input">${title}</textarea>
-                        <div class="artist-display" style="margin-top: 5px;">${artist}</div>
                         <div class="title-warning" style="display: none; color: red; font-weight: bold; margin-top: 5px;"></div>
+                    </div>
+                    <div class="info-input-group">
+                        <label>アーティスト</label>
+                        <span class="artist-display">${artist}</span>
                     </div>
                 </td>
                 <td class="input-cell">
@@ -87,8 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <label>ジャケットのダメージについて</label>
                         <div class="checkbox-group">${damageCheckboxes}</div>
                     </div>
-                    <h3 class="section-title">カテゴリー</h3>
-                     <div class="input-group full-width">
+                     <div class="input-group full-width" style="margin-top:15px;">
                         <label>カテゴリー</label>
                         <select name="category" ${isError ? 'disabled' : ''}>
                            ${categoriesHtml}
