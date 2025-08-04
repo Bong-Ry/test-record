@@ -16,9 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageUrl  = mainImage ? `/image/${mainImage.id}` : 'https://via.placeholder.com/120';
 
         const sku       = record.customLabel || '';
-        const title = (record.aiData?.Title && record.aiData?.Artist)
-            ? `${record.aiData.Title} ${record.aiData.Artist}`
-            : (record.aiData?.Title || 'N/A');
+        const title     = record.aiData?.Title || 'N/A';
+        const artist    = record.aiData?.Artist || 'N/A';
         const isError   = record.status === 'error';
 
         const conditionOptions      = ['NM', 'EX', 'VG+', 'VG', 'G', 'なし'];
@@ -29,11 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `<label class="checkbox-label"><input type="checkbox" name="jacketDamage" value="${opt}" ${isError ? 'disabled' : ''}> ${opt}</label>`
         ).join('');
 
-        // ★ cd-listerの仕様に合わせて価格オプションを完全に再現 ★
         const priceOptions = ['29.99', '39.99', '59.99', '79.99', '99.99'];
         const priceRadios  = priceOptions.map((price, index) =>
             `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`
-        ).join('') 
+        ).join('')
         + `<label class="radio-label"><input type="radio" name="price-${record.id}" value="other" ${isError ? 'disabled' : ''}> その他</label>`
         + `<input type="number" name="price-other-${record.id}" class="other-price-input" style="display:none;" placeholder="価格" ${isError ? 'disabled' : ''}>`;
 
@@ -54,8 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="info-input-group">
                         <label>タイトル</label>
-                        <textarea name="title" rows="4" class="title-input">${title}</textarea>
-                        <div class="title-warning" style="display: none;"></div>
+                        <textarea name="title" rows="3" class="title-input">${title}</textarea>
+                        <div class="artist-display" style="margin-top: 5px;">${artist}</div>
+                        <div class="title-warning" style="display: none; color: red; font-weight: bold; margin-top: 5px;"></div>
                     </div>
                 </td>
                 <td class="input-cell">
@@ -114,7 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const jacketDamageNodes = row.querySelectorAll('input[name="jacketDamage"]:checked');
         const jacketDamage      = Array.from(jacketDamageNodes).map(node => node.value);
 
-        // ★ cd-listerの仕様に合わせて「その他」価格の取得方法を修正 ★
         const priceRadio = row.querySelector(`input[name="price-${recordId}"]:checked`);
         let price;
         if (priceRadio.value === 'other') {
@@ -150,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
     function setupEventListeners(row) {
         row.querySelector('.btn-save').addEventListener('click', handleSave);
         row.querySelector('.main-record-image').addEventListener('click', e => {
@@ -158,15 +156,21 @@ document.addEventListener('DOMContentLoaded', () => {
             modalImg.src = e.target.src;
         });
 
-        const titleInput   = row.querySelector('textarea[name="title"]');
-        const titleWarning = row.querySelector('.title-warning');
-        const obiSelect    = row.querySelector('.obi-select');
+        const titleInput    = row.querySelector('textarea[name="title"]');
+        const artistDisplay = row.querySelector('.artist-display');
+        const titleWarning  = row.querySelector('.title-warning');
+        const obiSelect     = row.querySelector('.obi-select');
 
         const checkTitleLength = () => {
+            const artistLength = artistDisplay.textContent.length;
             const obiValue = obiSelect.value;
-            const maxLength = (obiValue === 'なし') ? 80 : 74;
+            let maxLength = 80 - (artistLength + 1); // 80 - (artist + space)
+            if (obiValue !== 'なし') {
+                maxLength -= 5; // " w/OBI"
+            }
+
             if (titleInput.value.length > maxLength) {
-                titleWarning.textContent = `※${maxLength}文字の制限を超えています。`;
+                titleWarning.textContent = `※タイトルの文字数制限(${maxLength}文字)を超えています。`;
                 titleWarning.style.display = 'block';
             } else {
                 titleWarning.style.display = 'none';
@@ -177,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
         titleInput.addEventListener('input', checkTitleLength);
         obiSelect.addEventListener('change', checkTitleLength);
 
-        // ★ cd-listerの仕様に合わせて「その他」価格の表示・非表示を制御 ★
         const recordId = row.dataset.recordId;
         const priceRadios = row.querySelectorAll(`input[name="price-${recordId}"]`);
         const otherPriceInput = row.querySelector(`input[name="price-other-${recordId}"]`);

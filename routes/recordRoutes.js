@@ -227,28 +227,30 @@ const generateCsv = records => {
       .map(img => img.url)
       .join('|');
 
-    const baseTitle = user.title || (ai.Title && ai.Artist ? `${ai.Title} ${ai.Artist}` : ai.Title || '');
-    const finalTitle = (user.obi && user.obi !== 'なし')
-      ? (baseTitle.includes('w/OBI') ? baseTitle : `${baseTitle} w/OBI`)
-      : baseTitle;
+    let finalTitle = user.title || ai.Title || '';
+    if (ai.Artist) {
+        finalTitle += ` ${ai.Artist}`;
+    }
+    if (user.obi && user.obi !== 'なし') {
+        finalTitle += ' w/OBI';
+    }
 
-    // ②送料のスプシ出力時の変更（ユーザーが選択した送料をそのまま使用）
     const shippingProfile = user.shipping || '';
 
     row[0]  = 'Add';
     row[1]  = r.customLabel;
-    row[2]  = user.price || ''; // ③価格はフロントエンドで処理済みの値を使用
+    row[2]  = user.price || '';
     row[3]  = user.productCondition === '新品' ? '1000' : '3000';
     row[4]  = finalTitle;
     row[5]  = descriptionTemplate({ ai, user });
     row[6]  = ai.RecordLabel || '';
     row[7]  = picURL;
-    row[9]  = '176985';
+    row[9]  = user.category || '176985';
     row[10] = '1';
     row[11] = 'payAddress';
     row[12] = 'buy it now';
     row[13] = 'Seller 60days';
-    row[14] = shippingProfile; // ここに送料が入る
+    row[14] = shippingProfile;
     row[15] = 'JP';
     row[16] = '417-0816, Fuji Shizuoka';
     row[17] = user.category || '';
@@ -263,8 +265,8 @@ const generateCsv = records => {
     row[26] = ai.Country || '';
     row[27] = '0';
     row[28] = ai.Artist || '';
-    row[29] = ai.Material || '';
-    row[30] = finalTitle;
+    row[29] = ai.Material || 'Vinyl';
+    row[30] = user.title || ai.Title || '';
     row[31] = ai.Genre || '';
     row[33] = ai.RecordLabel || '';
     row[36] = ai.Style || '';
