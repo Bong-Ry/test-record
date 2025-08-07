@@ -245,7 +245,7 @@ const generateCsv = records => {
     row[5]  = descriptionTemplate({ ai, user });
     row[6]  = ai.RecordLabel || '';
     row[7]  = picURL;
-    row[9]  = '176985'; // ★修正点: カテゴリーを固定値に
+    row[9]  = '176985'; // ★修正点: Categoryを固定値に
     row[10] = '1';
     row[11] = 'payAddress';
     row[12] = 'buy it now';
@@ -253,7 +253,7 @@ const generateCsv = records => {
     row[14] = shippingProfile;
     row[15] = 'JP';
     row[16] = '417-0816, Fuji Shizuoka';
-    row[17] = '176985'; // ★修正点: ストアカテゴリーを固定値に
+    row[17] = user.category || ''; // ★修正点: StoreCategoryはユーザーの選択値を反映
     row[18] = '0';
     row[19] = '0';
     row[20] = '0';
@@ -414,3 +414,4 @@ module.exports = sessions => {
 
   return router;
 };
+
