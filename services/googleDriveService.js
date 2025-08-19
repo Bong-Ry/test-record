@@ -70,6 +70,8 @@ async function getSubfolders(parentFolderId) {
         const files = await listAll({
             q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
             fields: 'files(id, name), nextPageToken',
+            // ★★★ 修正点: 作成日時(createdTime)で昇順(古い順)にソート ★★★
+            orderBy: 'createdTime', 
             supportsAllDrives: true,
             includeItemsFromAllDrives: true,
             corpora: 'allDrives',

@@ -8,55 +8,20 @@ const descriptionTemplate = ({ aiData, userInput }) => {
     const tracklistHtml = aiData.Tracklist
         ? Object.entries(aiData.Tracklist).map(([key, track]) => `<li>${key}: ${track}</li>`).join('')
         : '<li>N/A</li>';
-
     const jacketDamageText = userInput.jacketDamage?.length > 0 ? `Jacket damages: ${userInput.jacketDamage.join(', ')}` : '';
-
-    return `
-    <div style="font-family: Arial, sans-serif; max-width: 1000px;">
-        <h1 style="color: #1e3a8a;">${userInput.title}</h1>
-        <div style="display: flex; flex-wrap: wrap; margin-top: 20px;">
-            <div style="flex: 1; min-width: 300px; padding: 10px;">
-                <h2 style="color: #2c5282;">Condition</h2>
-                <ul>
-                    <li>Sleeve: ${userInput.conditionSleeve}</li>
-                    <li>Vinyl: ${userInput.conditionVinyl}</li>
-                    <li>OBI: ${userInput.obi}</li>
-                </ul>
-                <h2 style="color: #2c5282;">Key Features</h2>
-                <ul>
-                    <li>Artist: ${aiData.Artist || 'N/A'}</li>
-                    <li>Format: ${aiData.Format || 'Vinyl'}</li>
-                    <li>Genre: ${aiData.Genre || 'N/A'}</li>
-                    <li>${jacketDamageText}</li>
-                    <li>${userInput.comment || ''}</li>
-                </ul>
-            </div>
-            <div style="flex: 1; min-width: 300px; padding: 10px;">
-                <h2 style="color: #2c5282;">Tracklist</h2>
-                <ol>${tracklistHtml}</ol>
-            </div>
-        </div>
-        <div style="margin-top: 20px;">
-            <h2 style="color: #2c5282;">Product Description</h2><p>If you have any questions, please feel free to ask us.</p>
-            <h2 style="color: #2c5282;">Shipping</h2><p>Shipping by FedEx, DHL, or EMS.</p>
-            <h2 style="color: #2c5282;">International Buyers - Please Note:</h2><p>Import duties, taxes, and charges are not included. These charges are the buyer's responsibility.</p>
-        </div>
-    </div>`.replace(/\s{2,}/g, ' ').replace(/\n/g, '');
+    return `<div style="font-family: Arial, sans-serif; max-width: 1000px;"><h1 style="color: #1e3a8a;">${userInput.title}</h1><div style="display: flex; flex-wrap: wrap; margin-top: 20px;"><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Condition</h2><ul><li>Sleeve: ${userInput.conditionSleeve}</li><li>Vinyl: ${userInput.conditionVinyl}</li><li>OBI: ${userInput.obi}</li></ul><h2 style="color: #2c5282;">Key Features</h2><ul><li>Artist: ${aiData.Artist || 'N/A'}</li><li>Format: ${aiData.Format || 'Vinyl'}</li><li>Genre: ${aiData.Genre || 'N/A'}</li><li>${jacketDamageText}</li><li>${userInput.comment || ''}</li></ul></div><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Tracklist</h2><ol>${tracklistHtml}</ol></div></div><div style="margin-top: 20px;"><h2 style="color: #2c5282;">Product Description</h2><p>If you have any questions, please feel free to ask us.</p><h2 style="color: #2c5282;">Shipping</h2><p>Shipping by FedEx, DHL, or EMS.</p><h2 style="color: #2c5282;">International Buyers - Please Note:</h2><p>Import duties, taxes, and charges are not included. These charges are the buyer's responsibility.</p></div></div>`.replace(/\s{2,}/g, ' ').replace(/\n/g, '');
 };
 
 const generateCsv = (records) => {
     const headers = ["Action(CC=Cp1252)", "CustomLabel", "StartPrice", "ConditionID", "Title", "Description", "C:Brand", "PicURL", "Category", "ShippingProfileName", "Duration", "Format", "Quantity", "Country", "Location", "C:Artist", "C:Record Label", "C:Music Genre", "C:Speed", "C:Record Size", "C:Material", "C:Record Grading", "C:Sleeve Grading", "C:Features", "C:Release Year"];
     const headerRow = headers.join(',');
-
     const rows = records.filter(r => r.status === 'saved').map(r => {
         const { aiData, userInput, picURL, customLabel } = r;
         const titleParts = [aiData.Artist, aiData.Title];
         if (userInput.obi !== 'なし' && userInput.obi !== 'Not Applicable') titleParts.push('w/OBI');
-
         const features = [];
         if (userInput.obi !== 'なし' && userInput.obi !== 'Not Applicable') features.push('Obi');
         if (aiData.Format?.includes('Reissue')) features.push('Reissue');
-
         const data = {
             "Action(CC=Cp1252)": "Add", "CustomLabel": customLabel, "StartPrice": userInput.price,
             "ConditionID": userInput.productCondition === '新品' ? 1000 : 3000, "Title": titleParts.join(' '),
@@ -90,22 +55,12 @@ module.exports = (sessions) => {
     router.post('/process', async (req, res) => {
         const { parentFolderUrl, defaultCategory } = req.body;
         if (!parentFolderUrl) return res.redirect('/');
-
         const sessionId = uuidv4();
-
         try {
             const shippingOptions = await driveService.getShippingOptions();
             const categories = await driveService.getStoreCategories();
-
-            sessions.set(sessionId, {
-                status: 'processing',
-                records: [],
-                shippingOptions,
-                categories,
-            });
-
+            sessions.set(sessionId, { status: 'processing', records: [], shippingOptions, categories });
             res.render('results', { sessionId, defaultCategory, shippingOptions });
-
         } catch (error) {
             console.error("Failed to fetch initial data from Spreadsheet:", error);
             const errorMessage = 'スプレッドシートからの初期データ取得に失敗しました。';
@@ -120,19 +75,13 @@ module.exports = (sessions) => {
                 const folderIdMatch = parentFolderUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
                 if (!folderIdMatch) throw new Error('無効なGoogle DriveフォルダURLです。');
                 const parentFolderId = folderIdMatch[1];
-                
                 const subfolders = await driveService.getSubfolders(parentFolderId);
                 if (subfolders.length === 0) throw new Error('処理対象のフォルダが見つかりません。');
-                
                 const processedCount = (await driveService.getProcessedSubfolders(parentFolderId)).length;
                 const d = new Date();
                 const datePrefix = `R${d.getFullYear().toString().slice(-2)}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}`;
-
                 session.records = subfolders.map((f, index) => ({
-                    id: uuidv4(),
-                    folderId: f.id,
-                    folderName: f.name,
-                    status: 'pending',
+                    id: uuidv4(), folderId: f.id, folderName: f.name, status: 'pending',
                     customLabel: `${datePrefix}_${(processedCount + index + 1).toString().padStart(4, '0')}`
                 }));
 
@@ -141,14 +90,33 @@ module.exports = (sessions) => {
                         const imageFiles = await driveService.getRecordImages(record.folderId);
                         if (imageFiles.length === 0) throw new Error('フォルダ内に画像がありません。');
                         
+                        // ★★★ ここから修正: 画像の優先順位ソート ★★★
+                        const getSortPriority = (fileName) => {
+                            const upperCaseName = fileName.toUpperCase();
+                            if (upperCaseName.startsWith('M')) return 1;
+                            if (upperCaseName.startsWith('J')) return 2;
+                            if (upperCaseName.startsWith('R')) return 3;
+                            return 4;
+                        };
+
+                        imageFiles.sort((a, b) => {
+                            const priorityA = getSortPriority(a.name);
+                            const priorityB = getSortPriority(b.name);
+                            if (priorityA !== priorityB) {
+                                return priorityA - priorityB;
+                            }
+                            return a.name.localeCompare(b.name); // 同じ優先度なら名前順
+                        });
+
+                        const mainImageToUpload = imageFiles[0]; // ソート後、最初の画像をメイン画像とする
+                        // ★★★ ここまで修正 ★★★
+
                         const imageBuffers = await Promise.all(
                             imageFiles.map(file => driveService.getDriveImageBuffer(file.id))
                         );
                         
                         record.aiData = await aiService.analyzeRecord(imageBuffers);
                         
-                        const j1Image = imageFiles.find(img => img.name.toUpperCase().startsWith('J1'));
-                        const mainImageToUpload = j1Image || imageFiles[0];
                         const mainImageIndex = imageFiles.findIndex(f => f.id === mainImageToUpload.id);
                         const mainImageBuffer = imageBuffers[mainImageIndex];
                         
@@ -180,10 +148,8 @@ module.exports = (sessions) => {
         const session = sessions.get(sessionId);
         const record = session?.records.find(r => r.id === recordId);
         if (!record) return res.status(404).json({ error: 'Record not found' });
-        
         record.userInput = req.body;
         record.status = 'saved';
-        
         await driveService.renameFolder(record.folderId, `済 ${record.folderName}`);
         res.json({ status: 'ok' });
     });
