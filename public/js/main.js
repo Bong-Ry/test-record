@@ -7,11 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalClose         = document.querySelector('.modal-close');
     const progressContainer  = document.getElementById('progress-container');
     const progressBarInner   = document.querySelector('.progress-bar-inner');
+    const progressText       = document.getElementById('progress-text');
+    const errorMessage       = document.getElementById('error-message');
     const resultsContainer   = document.getElementById('results-table-container');
     const downloadBtn        = document.getElementById('download-csv-btn');
 
     function createRow(record) {
-        const j1Image   = record.images?.find(img => img.name.startsWith('J1_'));
+        const j1Image   = record.images?.find(img => img.name.toUpperCase().startsWith('J1'));
         const mainImage = j1Image || (record.images && record.images.length > 0 ? record.images[0] : null);
         const imageUrl  = mainImage ? `/image/${mainImage.id}` : 'https://via.placeholder.com/120';
 
@@ -34,51 +36,27 @@ document.addEventListener('DOMContentLoaded', () => {
         ).join('')
         + `<label class="radio-label"><input type="radio" name="price-${record.id}" value="other" ${isError ? 'disabled' : ''}> その他</label>`
         + `<input type="number" name="price-other-${record.id}" class="other-price-input" style="display:none;" placeholder="価格" ${isError ? 'disabled' : ''}>`;
-
+        
         const categoriesHtml = record.categories ? record.categories.map(cat =>
-            `<option value="${cat.code}" ${cat.code === defaultCategory ? 'selected' : ''}>${cat.name}</option>`
-        ).join('') : '';
+            `<option value="${cat.id}" ${cat.id === defaultCategory ? 'selected' : ''}>${cat.name}</option>`
+        ).join('') : `<option value="">読込失敗</option>`;
 
         const shippingOptionsHtml = shippingOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('');
 
         return `
             <tr id="row-${record.id}" data-record-id="${record.id}" class="record-row">
-                <td class="status-cell">${isError ? `❌` : `<span id="status-${record.id}">...</span>`}</td>
+                <td class="status-cell">${isError ? `❌<br><small>${record.error || ''}</small>` : `<span id="status-${record.id}">✏️</span>`}</td>
                 <td class="image-cell"><img src="${imageUrl}" alt="Record Image" class="main-record-image"></td>
                 <td class="info-cell">
-                    <div class="info-input-group">
-                        <label>SKU</label>
-                        <span class="sku-display">${sku}</span>
-                    </div>
-                    <div class="info-input-group">
-                        <label>タイトル</label>
-                        <textarea name="title" rows="3" class="title-input">${title}</textarea>
-                        <div class="title-warning" style="display: none; color: red; font-weight: bold; margin-top: 5px;"></div>
-                    </div>
-                    <div class="info-input-group">
-                        <label>アーティスト</label>
-                        <span class="artist-display">${artist}</span>
-                    </div>
+                    <div class="info-input-group"><label>SKU</label><span class="sku-display">${sku}</span></div>
+                    <div class="info-input-group"><label>タイトル</label><textarea name="title" rows="3" class="title-input">${title}</textarea></div>
+                    <div class="info-input-group"><label>アーティスト</label><span class="artist-display">${artist}</span></div>
                 </td>
                 <td class="input-cell">
                     <div class="input-section">
-                        <div class="input-group full-width">
-                            <label>価格</label>
-                            <div class="radio-group compact">${priceRadios}</div>
-                        </div>
-                        <div class="input-group">
-                            <label>送料</label>
-                            <select name="shipping" ${isError ? 'disabled' : ''}>
-                                ${shippingOptionsHtml}
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>商品の状態</label>
-                            <select name="productCondition" ${isError ? 'disabled' : ''}>
-                                <option value="中古">中古</option>
-                                <option value="新品">新品</option>
-                            </select>
-                        </div>
+                        <div class="input-group full-width"><label>価格</label><div class="radio-group compact">${priceRadios}</div></div>
+                        <div class="input-group"><label>送料</label><select name="shipping" ${isError ? 'disabled' : ''}>${shippingOptionsHtml}</select></div>
+                        <div class="input-group"><label>商品の状態</label><select name="productCondition" ${isError ? 'disabled' : ''}><option value="中古">中古</option><option value="新品">新品</option></select></div>
                     </div>
                     <h3 class="section-title">状態</h3>
                     <div class="input-section">
@@ -86,24 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="input-group"><label>レコードの状態</label><select name="conditionVinyl" ${isError ? 'disabled' : ''}>${conditionOptionsHtml.replace('value="なし"','value="Not Applicable"')}</select></div>
                         <div class="input-group"><label>OBIの状態</label><select name="obi" class="obi-select" ${isError ? 'disabled' : ''}>${conditionOptionsHtml}</select></div>
                     </div>
-                    <div class="input-group full-width">
-                        <label>ジャケットのダメージについて</label>
-                        <div class="checkbox-group">${damageCheckboxes}</div>
-                    </div>
-                     <div class="input-group full-width" style="margin-top:15px;">
-                        <label>カテゴリー</label>
-                        <select name="category" ${isError ? 'disabled' : ''}>
-                           ${categoriesHtml}
-                        </select>
-                    </div>
-                    <div class="input-group full-width" style="margin-top: 15px;">
-                        <label>コメント</label>
-                        <textarea name="comment" rows="3" ${isError ? 'disabled' : ''}></textarea>
-                    </div>
+                    <div class="input-group full-width"><label>ジャケットのダメージ</label><div class="checkbox-group">${damageCheckboxes}</div></div>
+                     <div class="input-group full-width" style="margin-top:15px;"><label>カテゴリー</label><select name="category" ${isError ? 'disabled' : ''}>${categoriesHtml}</select></div>
+                    <div class="input-group full-width" style="margin-top: 15px;"><label>コメント</label><textarea name="comment" rows="3" ${isError ? 'disabled' : ''}></textarea></div>
                 </td>
-                <td class="action-cell">
-                    <button class="btn btn-save" ${isError ? 'disabled' : ''}>保存</button>
-                </td>
+                <td class="action-cell"><button class="btn btn-save" ${isError ? 'disabled' : ''}>保存</button></td>
             </tr>`;
     }
 
@@ -166,9 +131,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const checkTitleLength = () => {
             const artistLength = artistDisplay.textContent.length;
             const obiValue = obiSelect.value;
-            let maxLength = 80 - (artistLength + 1); // 80 - (artist + space)
+            let maxLength = 80 - (artistLength + 1);
             if (obiValue !== 'なし') {
-                maxLength -= 5; // " w/OBI"
+                maxLength -= 5;
             }
 
             if (titleInput.value.length > maxLength) {
@@ -204,7 +169,15 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch(`/status/${sessionId}`)
         .then(res => res.json())
         .then(session => {
-            if (!session || !session.records) return;
+            if (!session) return;
+            if (session.status === 'error') {
+                 clearInterval(intervalId);
+                 progressText.textContent = 'エラーが発生しました。';
+                 errorMessage.textContent = session.error;
+                 errorMessage.style.display = 'block';
+                 return;
+            }
+            if (!session.records) return;
 
             session.records.forEach(record => {
                 let row = document.getElementById(`row-${record.id}`);
@@ -216,16 +189,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            const total = session.records.length;
+            const processed = session.records.filter(r => r.status !== 'pending').length;
+            const progress = total > 0 ? (processed / total) * 100 : 0;
+            progressBarInner.style.width = `${progress}%`;
+            progressText.textContent = `処理中... (${processed}/${total})`;
+
             if (session.status === 'completed') {
                 clearInterval(intervalId);
                 progressContainer.style.display = 'none';
                 resultsContainer.style.display  = 'block';
                 downloadBtn.href = `/csv/${sessionId}`;
-            } else {
-                const total      = session.records.length;
-                const processed  = session.records.filter(r => r.status !== 'pending').length;
-                const progress   = total > 0 ? (processed / total) * 100 : 0;
-                progressBarInner.style.width = `${progress}%`;
             }
         });
     }

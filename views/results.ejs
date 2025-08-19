@@ -12,10 +12,10 @@
         <div id="progress-container">
             <div class="progress-bar"><div class="progress-bar-inner"></div></div>
             <p id="progress-text">処理中です。しばらくお待ちください…</p>
+            <p id="error-message" style="color: red; display: none;"><%= typeof error !== 'undefined' ? error : '' %></p>
         </div>
         <div id="results-table-container" style="display: none;">
-
-          <a href="#" id="download-csv-btn" class="btn btn-download" style="display: none;">CSVダウンロード</a>
+            <a href="#" id="download-csv-btn" class="btn btn-download" style="display: none;">CSVダウンロード</a>
             <table id="results-table">
                 <thead>
                     <tr>
@@ -35,8 +35,7 @@
         <span class="modal-close">&times;</span>
         <img class="modal-content" id="modal-image">
     </div>
-
-
+    
     <script>
         const sessionId = "<%= sessionId %>";
         const defaultCategory = "<%= defaultCategory %>";

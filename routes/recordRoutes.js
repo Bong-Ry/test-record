@@ -1,11 +1,9 @@
-// routes/recordRoutes.js
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const driveService = require('../services/googleDriveService');
 const aiService = require('../services/openAiService');
-const recordService = require('../services/recordService'); // ★修正: eBayアップロード機能を持つサービス
+const { uploadPictureFromBuffer } = require('../services/ebayService');
 
-// CSV生成と商品説明のロジック (test-cdlisterから流用)
 const descriptionTemplate = ({ aiData, userInput }) => {
     const tracklistHtml = aiData.Tracklist
         ? Object.entries(aiData.Tracklist).map(([key, track]) => `<li>${key}: ${track}</li>`).join('')
@@ -51,7 +49,7 @@ const generateCsv = (records) => {
     const headerRow = headers.join(',');
 
     const rows = records.filter(r => r.status === 'saved').map(r => {
-        const { aiData, userInput, picURL, customLabel } = r; // ★修正: ebayImageUrls -> picURL
+        const { aiData, userInput, picURL, customLabel } = r;
         const titleParts = [aiData.Artist, aiData.Title];
         if (userInput.obi !== 'なし' && userInput.obi !== 'Not Applicable') titleParts.push('w/OBI');
 
@@ -63,7 +61,7 @@ const generateCsv = (records) => {
             "Action(CC=Cp1252)": "Add", "CustomLabel": customLabel, "StartPrice": userInput.price,
             "ConditionID": userInput.productCondition === '新品' ? 1000 : 3000, "Title": titleParts.join(' '),
             "Description": descriptionTemplate({ aiData, userInput }), "C:Brand": aiData.RecordLabel || "No Brand",
-            "PicURL": picURL, "Category": userInput.category, // ★修正: ebayImageUrls -> picURL
+            "PicURL": picURL, "Category": userInput.category,
             "ShippingProfileName": userInput.shipping, "Duration": "GTC", "Format": "FixedPrice",
             "Quantity": 1, "Country": "JP", "Location": "Fuji, Shizuoka",
             "C:Artist": aiData.Artist, "C:Record Label": aiData.RecordLabel, "C:Music Genre": aiData.Genre,
@@ -76,74 +74,86 @@ const generateCsv = (records) => {
     return [headerRow, ...rows].join('\r\n');
 };
 
-
-// メインのルーティング処理
 module.exports = (sessions) => {
     const router = express.Router();
 
-    // トップページ表示
-    router.get('/', (req, res) => {
-        // ここでカテゴリや送料を読み込んでも良いが、簡単のため空で渡す
-        res.render('index', { categories: [], shippingOptions: [] });
+    router.get('/', async (req, res) => {
+        try {
+            const categories = await driveService.getStoreCategories();
+            res.render('index', { categories });
+        } catch (error) {
+            console.error(error);
+            res.render('index', { categories: [] });
+        }
     });
 
-    // 解析開始
     router.post('/process', async (req, res) => {
         const { parentFolderUrl, defaultCategory } = req.body;
         if (!parentFolderUrl) return res.redirect('/');
 
         const sessionId = uuidv4();
-        // ★ categories と shippingOptions をセッションに保存
-        sessions.set(sessionId, { status: 'processing', records: [], categories: [{code: defaultCategory, name: 'Default'}], shippingOptions: ['Default Shipping'] });
 
-        res.render('results', { sessionId, defaultCategory, shippingOptions: ['Default Shipping'] });
+        try {
+            const shippingOptions = await driveService.getShippingOptions();
+            const categories = await driveService.getStoreCategories();
 
-        // 非同期でバックグラウンド処理を開始
+            sessions.set(sessionId, {
+                status: 'processing',
+                records: [],
+                shippingOptions,
+                categories,
+            });
+
+            res.render('results', { sessionId, defaultCategory, shippingOptions });
+
+        } catch (error) {
+            console.error("Failed to fetch initial data from Spreadsheet:", error);
+            const errorMessage = 'スプレッドシートからの初期データ取得に失敗しました。';
+            sessions.set(sessionId, { status: 'error', error: errorMessage, records: [] });
+            res.render('results', { sessionId, defaultCategory: '', shippingOptions: [], error: errorMessage });
+            return;
+        }
+
         (async () => {
             const session = sessions.get(sessionId);
             try {
-                const parentFolderId = parentFolderUrl.split('/').pop();
+                const folderIdMatch = parentFolderUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
+                if (!folderIdMatch) throw new Error('無効なGoogle DriveフォルダURLです。');
+                const parentFolderId = folderIdMatch[1];
+                
                 const subfolders = await driveService.getSubfolders(parentFolderId);
-
                 if (subfolders.length === 0) throw new Error('処理対象のフォルダが見つかりません。');
                 
-                session.records = subfolders.map(f => ({
-                    id: uuidv4(), folderId: f.id, customLabel: f.name.split(' ')[0], status: 'pending'
+                const processedCount = (await driveService.getProcessedSubfolders(parentFolderId)).length;
+                const d = new Date();
+                const datePrefix = `R${d.getFullYear().toString().slice(-2)}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}`;
+
+                session.records = subfolders.map((f, index) => ({
+                    id: uuidv4(),
+                    folderId: f.id,
+                    folderName: f.name,
+                    status: 'pending',
+                    customLabel: `${datePrefix}_${(processedCount + index + 1).toString().padStart(4, '0')}`
                 }));
 
                 for (const record of session.records) {
                     try {
                         const imageFiles = await driveService.getRecordImages(record.folderId);
+                        if (imageFiles.length === 0) throw new Error('フォルダ内に画像がありません。');
+                        
                         const imageBuffers = await Promise.all(
                             imageFiles.map(file => driveService.getDriveImageBuffer(file.id))
                         );
                         
-                        // AI解析
                         record.aiData = await aiService.analyzeRecord(imageBuffers);
                         
-                        // ★★★ eBay画像アップロード処理 ★★★
-                        // J1画像を特定してアップロード
-                        const j1Image = imageFiles.find(img => img.name.startsWith('J1_'));
-                        const mainImageToUpload = j1Image || (imageFiles.length > 0 ? imageFiles[0] : null);
-
-                        if (!mainImageToUpload) throw new Error('アップロード対象の画像がありません。');
-                        
-                        // getDriveImageStreamからBufferに変換して渡す必要があるが、
-                        // 既に imageBuffers で全画像を取得済みなのでそれを利用する
+                        const j1Image = imageFiles.find(img => img.name.toUpperCase().startsWith('J1'));
+                        const mainImageToUpload = j1Image || imageFiles[0];
                         const mainImageIndex = imageFiles.findIndex(f => f.id === mainImageToUpload.id);
                         const mainImageBuffer = imageBuffers[mainImageIndex];
                         
-                        // recordService を使って eBay にアップロードし、URLを格納
-                        // recordService がBufferを直接受け付けないため、ダミーのURLを持たせる
-                        // recordServiceの改修が必要だが、ここでは簡易的に対応
-                        // (理想は recordService.ensureEbayPicURLFromBuffer(buffer) のような関数)
-                        // ここでは元の ebayService を直接使うのが手っ取り早い
-                        const { uploadPictureFromBuffer } = require('../services/ebayService');
                         record.picURL = await uploadPictureFromBuffer(mainImageBuffer, { pictureName: record.customLabel });
-
-                        // 全画像のIDも保持しておく（画面表示用）
                         record.images = imageFiles.map(f => ({ id: f.id, name: f.name }));
-
                         record.status = 'success';
 
                     } catch (err) {
@@ -161,26 +171,23 @@ module.exports = (sessions) => {
         })();
     });
 
-    // 処理状況を返すAPI
     router.get('/status/:sessionId', (req, res) => {
         res.json(sessions.get(req.params.sessionId) || { status: 'error', error: 'Session not found' });
     });
 
-    // ユーザーの入力を保存するAPI
     router.post('/save/:sessionId/:recordId', async (req, res) => {
         const { sessionId, recordId } = req.params;
         const session = sessions.get(sessionId);
         const record = session?.records.find(r => r.id === recordId);
         if (!record) return res.status(404).json({ error: 'Record not found' });
+        
         record.userInput = req.body;
         record.status = 'saved';
-        // フォルダ名を「済」つきに変更
-        const originalFolder = await driveService.getSubfolders(record.folderId);
-        // await driveService.renameFolder(record.folderId, `済 ${originalFolder.name}`);
+        
+        await driveService.renameFolder(record.folderId, `済 ${record.folderName}`);
         res.json({ status: 'ok' });
     });
 
-    // CSVをダウンロード
     router.get('/csv/:sessionId', (req, res) => {
         const session = sessions.get(req.params.sessionId);
         if (!session) return res.status(404).send('Session not found');
@@ -191,7 +198,6 @@ module.exports = (sessions) => {
         res.send('\uFEFF' + generateCsv(session.records));
     });
 
-    // 画像を表示
     router.get('/image/:fileId', async (req, res) => {
         try {
             const imageStream = await driveService.getDriveImageStream(req.params.fileId);

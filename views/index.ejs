@@ -6,47 +6,14 @@
     <title>レコード出品アシスタント</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* このページ専用のスタイル */
-        .header-container {
-            display: flex;
-            justify-content: space-between; /* 両端に寄せる */
-            align-items: center; /* 上下中央に揃える */
-            margin-bottom: 20px;
-        }
-        .header-container p {
-            margin: 0; /* pタグのデフォルトマージンをリセット */
-        }
-        .category-group {
-            display: flex;
-            align-items: center;
-            gap: 8px; /* ラベルとプルダウンの間隔 */
-        }
-        .category-group label {
-            font-weight: 600;
-            white-space: nowrap; /* ラベルが折り返さないようにする */
-        }
-        .category-select {
-            padding: 5px 8px; /* プルダウンを小さくする */
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-        .url-input {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
+        .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header-container p { margin: 0; }
+        .category-group { display: flex; align-items: center; gap: 8px; }
+        .category-group label { font-weight: 600; white-space: nowrap; }
+        .category-select { padding: 5px 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .url-input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -61,10 +28,10 @@
                     <select id="defaultCategory" name="defaultCategory" class="category-select">
                         <% if (categories && categories.length > 0) { %>
                             <% categories.forEach(category => { %>
-                                <option value="<%= category.code %>"><%= category.name %></option>
+                                <option value="<%= category.id %>"><%= category.name %></option>
                             <% }); %>
                         <% } else { %>
-                            <option value="">読込失敗</option>
+                            <option value="">カテゴリー読込失敗</option>
                         <% } %>
                     </select>
                 </div>

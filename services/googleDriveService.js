@@ -2,14 +2,58 @@ const { google } = require('googleapis');
 
 const auth = new google.auth.GoogleAuth({
     keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    scopes: ['https://www.googleapis.com/auth/drive'],
+    scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/spreadsheets.readonly'
+    ],
 });
 
 const drive = google.drive({ version: 'v3', auth });
+const sheets = google.sheets({ version: 'v4', auth });
 
-/*───────────────────────────────
- * Drive helper
- *───────────────────────────────*/
+const SPREADSHEET_ID = '1pGXjlYl29r1KIIPiIu0N4gXKdGquhIZe3UjH_QApwfA';
+
+async function getStoreCategories() {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Category-レコード!A2:B',
+        });
+
+        const rows = response.data.values;
+        if (rows && rows.length) {
+            return rows
+                .filter(row => row[0] && row[1])
+                .map(row => ({
+                    name: row[0],
+                    id: row[1],
+                }));
+        }
+        return [];
+    } catch (err) {
+        console.error('The API returned an error: ' + err);
+        throw new Error('スプレッドシートからのカテゴリ取得に失敗しました。');
+    }
+}
+
+async function getShippingOptions() {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: '送料管理!A2:A',
+        });
+
+        const rows = response.data.values;
+        if (rows && rows.length) {
+            return rows.flat().filter(cost => cost && cost.trim() !== '');
+        }
+        return [];
+    } catch (err) {
+        console.error('The API returned an error: ' + err);
+        throw new Error('スプレッドシートからの送料取得に失敗しました。');
+    }
+}
+
 async function listAll(params) {
     const files = [];
     let pageToken;
@@ -21,7 +65,6 @@ async function listAll(params) {
     return files;
 }
 
-/* 親フォルダ内の未処理フォルダ（名前に「済」を含まない） */
 async function getSubfolders(parentFolderId) {
     try {
         const files = await listAll({
@@ -38,7 +81,6 @@ async function getSubfolders(parentFolderId) {
     }
 }
 
-/* 親フォルダ内の処理済みフォルダ（名前に「済」を含む） */
 async function getProcessedSubfolders(parentFolderId) {
     try {
         const files = await listAll({
@@ -55,7 +97,6 @@ async function getProcessedSubfolders(parentFolderId) {
     }
 }
 
-/* フォルダ内画像一覧 */
 async function getRecordImages(folderId) {
     try {
         const files = await listAll({
@@ -71,7 +112,6 @@ async function getRecordImages(folderId) {
     }
 }
 
-/* フォルダ名変更 */
 async function renameFolder(folderId, newName) {
     try {
         await drive.files.update({
@@ -84,7 +124,6 @@ async function renameFolder(folderId, newName) {
     }
 }
 
-/* 画像ストリーム */
 async function getDriveImageStream(fileId) {
     const res = await drive.files.get(
         { fileId, alt: 'media', supportsAllDrives: true },
@@ -93,7 +132,6 @@ async function getDriveImageStream(fileId) {
     return res.data;
 }
 
-/* 画像 Buffer */
 async function getDriveImageBuffer(fileId) {
     try {
         const stream = await getDriveImageStream(fileId);
@@ -115,5 +153,7 @@ module.exports = {
     getRecordImages,
     renameFolder,
     getDriveImageStream,
-    getDriveImageBuffer
+    getDriveImageBuffer,
+    getStoreCategories,
+    getShippingOptions,
 };
