@@ -9,30 +9,106 @@ const descriptionTemplate = ({ aiData, userInput }) => {
         ? Object.entries(aiData.Tracklist).map(([key, track]) => `<li>${key}: ${track}</li>`).join('')
         : '<li>N/A</li>';
     const jacketDamageText = userInput.jacketDamage?.length > 0 ? `Jacket damages: ${userInput.jacketDamage.join(', ')}` : '';
-    return `<div style="font-family: Arial, sans-serif; max-width: 1000px;"><h1 style="color: #1e3a8a;">${userInput.title}</h1><div style="display: flex; flex-wrap: wrap; margin-top: 20px;"><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Condition</h2><ul><li>Sleeve: ${userInput.conditionSleeve}</li><li>Vinyl: ${userInput.conditionVinyl}</li><li>OBI: ${userInput.obi}</li></ul><h2 style="color: #2c5282;">Key Features</h2><ul><li>Artist: ${aiData.Artist || 'N/A'}</li><li>Format: ${aiData.Format || 'Vinyl'}</li><li>Genre: ${aiData.Genre || 'N/A'}</li><li>${jacketDamageText}</li><li>${userInput.comment || ''}</li></ul></div><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Tracklist</h2><ol>${tracklistHtml}</ol></div></div><div style="margin-top: 20px;"><h2 style="color: #2c5282;">Product Description</h2><p>If you have any questions, please feel free to ask us.</p><h2 style="color: #2c5282;">Shipping</h2><p>Shipping by FedEx, DHL, or EMS.</p><h2 style="color: #2c5282;">International Buyers - Please Note:</h2><p>Import duties, taxes, and charges are not included. These charges are the buyer's responsibility.</p></div></div>`.replace(/\s{2,}/g, ' ').replace(/\n/g, '');
+    return `<div style="font-family: Arial, sans-serif; max-width: 1000px;"><h1 style="color: #1e3a8a;">${userInput.title}</h1><div style="display: flex; flex-wrap: wrap; margin-top: 20px;"><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Condition</h2><ul><li>Sleeve: ${userInput.conditionSleeve}</li><li>Vinyl: ${userInput.conditionVinyl}</li><li>OBI: ${userInput.obi}</li></ul><h2 style="color: #2c5282;">Key Features</h2><ul><li>Artist: ${aiData.Artist || 'N/A'}</li><li>Format: ${aiData.Format || 'Vinyl'}</li><li>Genre: ${aiData.Genre || 'N/A'}</li><li>${jacketDamageText}</li><li>${userInput.comment || ''}</li></ul></div><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Tracklist</h2><ol>${tracklistHtml}</ol></div></div><div style="margin-top: 20px;"><h2 style="color: #2c5282;">Product Description</h2><p>If you have any questions, please feel free to ask us.</p><h2 style="color: #2c5282;">Shipping</h2><p>Shipping by FedEx, DHL, or EMS.</p><h2 style="color: #2c5282;">International Buyers - Please Note:</h2><p>Import duties, taxes, and charges are not included. These charges are the buyer’s responsibility.</p></div></div>`.replace(/\s{2,}/g, ' ').replace(/\n/g, '');
 };
 
+// record-listerの仕様に合わせたCSV生成関数
 const generateCsv = (records) => {
-    const headers = ["Action(CC=Cp1252)", "CustomLabel", "StartPrice", "ConditionID", "Title", "Description", "C:Brand", "PicURL", "Category", "ShippingProfileName", "Duration", "Format", "Quantity", "Country", "Location", "C:Artist", "C:Record Label", "C:Music Genre", "C:Speed", "C:Record Size", "C:Material", "C:Record Grading", "C:Sleeve Grading", "C:Features", "C:Release Year"];
-    const headerRow = headers.join(',');
+    const headers = [
+        "Action(CC=Cp1252)","CustomLabel","StartPrice","ConditionID","Title","Description",
+        "C:Brand","PicURL","UPC","Category","PayPalAccepted","PayPalEmailAddress",
+        "PaymentProfileName","ReturnProfileName","ShippingProfileName","Country","Location",
+        "StoreCategory","Apply Profile Domestic","Apply Profile International",
+        "BuyerRequirements:LinkedPayPalAccount","Duration","Format","Quantity","Currency",
+        "SiteID","C:Country","BestOfferEnabled","C:Artist","C:Material","C:Release Title",
+        "C:Genre","C:Type","C:Record Label","C:Color","C:Record Size","C:Style","C:Format",
+        "C:Release Year","C:Record Grading","C:Sleeve Grading","C:Inlay Condition",
+        "C:Case Type","C:Edition","C:Speed","C:Features","C:Country/Region of Manufacture",
+        "C:Language","C:Occasion","C:Instrument","C:Era","C:Producer","C:Fidelity Level",
+        "C:Composer","C:Conductor","C:Performer Orchestra","C:Run Time","C:MPN",
+        "C:California Prop 65 Warning","C:Catalog Number","C:Number of Audio Channels",
+        "C:Unit Quantity","C:Unit Type","C:Vinyl Matrix Number", "Created categories"
+    ];
+    const headerRow = headers.map(h => `"${h.replace(/"/g, '""')}"`).join(',');
+
     const rows = records.filter(r => r.status === 'saved').map(r => {
-        const { aiData, userInput, picURL, customLabel } = r;
-        const titleParts = [aiData.Artist, aiData.Title];
-        if (userInput.obi !== 'なし' && userInput.obi !== 'Not Applicable') titleParts.push('w/OBI');
-        const features = [];
-        if (userInput.obi !== 'なし' && userInput.obi !== 'Not Applicable') features.push('Obi');
-        if (aiData.Format?.includes('Reissue')) features.push('Reissue');
+        const { aiData: ai, userInput: user, ebayImageUrls, customLabel } = r;
+        const picURL = ebayImageUrls ? ebayImageUrls.join('|') : '';
+
+        let finalTitle = user.title || ai.Title || '';
+        if (ai.Artist) {
+            finalTitle = `${ai.Artist} ${finalTitle}`;
+        }
+        if (user.obi && user.obi !== 'なし' && user.obi !== 'Not Applicable') {
+            finalTitle += ' w/OBI';
+        }
+        
         const data = {
-            "Action(CC=Cp1252)": "Add", "CustomLabel": customLabel, "StartPrice": userInput.price,
-            "ConditionID": userInput.productCondition === '新品' ? 1000 : 3000, "Title": titleParts.join(' '),
-            "Description": descriptionTemplate({ aiData, userInput }), "C:Brand": aiData.RecordLabel || "No Brand",
-            "PicURL": picURL, "Category": userInput.category,
-            "ShippingProfileName": userInput.shipping, "Duration": "GTC", "Format": "FixedPrice",
-            "Quantity": 1, "Country": "JP", "Location": "Fuji, Shizuoka",
-            "C:Artist": aiData.Artist, "C:Record Label": aiData.RecordLabel, "C:Music Genre": aiData.Genre,
-            "C:Speed": "33 RPM", "C:Record Size": "12\"", "C:Material": "Vinyl",
-            "C:Record Grading": userInput.conditionVinyl, "C:Sleeve Grading": userInput.conditionSleeve,
-            "C:Features": features.join('|'), "C:Release Year": aiData.Released,
+            "Action(CC=Cp1252)": "Add",
+            "CustomLabel": customLabel,
+            "StartPrice": user.price || '',
+            "ConditionID": user.productCondition === '新品' ? '1000' : '3000',
+            "Title": finalTitle,
+            "Description": descriptionTemplate({ aiData: ai, userInput: user }),
+            "C:Brand": ai.RecordLabel || '',
+            "PicURL": picURL,
+            "UPC": "", // 空欄
+            "Category": "176985", // 固定値
+            "PayPalAccepted": "1",
+            "PayPalEmailAddress": "payAddress",
+            "PaymentProfileName": "buy it now",
+            "ReturnProfileName": "Seller 60days",
+            "ShippingProfileName": user.shipping || '',
+            "Country": "JP",
+            "Location": "417-0816, Fuji Shizuoka",
+            "StoreCategory": user.category || '', // ユーザー選択のカテゴリ
+            "Apply Profile Domestic": "0",
+            "Apply Profile International": "0",
+            "BuyerRequirements:LinkedPayPalAccount": "0",
+            "Duration": "GTC",
+            "Format": "FixedPriceItem",
+            "Quantity": "1",
+            "Currency": "USD",
+            "SiteID": "US",
+            "C:Country": ai.Country || '',
+            "BestOfferEnabled": "0",
+            "C:Artist": ai.Artist || '',
+            "C:Material": ai.Material || 'Vinyl',
+            "C:Release Title": user.title || ai.Title || '',
+            "C:Genre": ai.Genre || '',
+            "C:Type": "", // 空欄
+            "C:Record Label": ai.RecordLabel || '',
+            "C:Color": "", // 空欄
+            "C:Record Size": "", // 空欄
+            "C:Style": ai.Style || '',
+            "C:Format": ai.Format || '',
+            "C:Release Year": ai.Released || '',
+            "C:Record Grading": user.conditionVinyl || '',
+            "C:Sleeve Grading": user.conditionSleeve || '',
+            "C:Inlay Condition": "", // 空欄
+            "C:Case Type": "", // 空欄
+            "C:Edition": "", // 空欄
+            "C:Speed": "", // 空欄
+            "C:Features": "", // 空欄
+            "C:Country/Region of Manufacture": "Japan",
+            "C:Language": "", // 空欄
+            "C:Occasion": "", // 空欄
+            "C:Instrument": "", // 空欄
+            "C:Era": "", // 空欄
+            "C:Producer": "", // 空欄
+            "C:Fidelity Level": "", // 空欄
+            "C:Composer": "", // 空欄
+            "C:Conductor": "", // 空欄
+            "C:Performer Orchestra": "", // 空欄
+            "C:Run Time": "", // 空欄
+            "C:MPN": "", // 空欄
+            "C:California Prop 65 Warning": "", // 空欄
+            "C:Catalog Number": ai.CatalogNumber || '',
+            "C:Number of Audio Channels": "", // 空欄
+            "C:Unit Quantity": "", // 空欄
+            "C:Unit Type": "", // 空欄
+            "C:Vinyl Matrix Number": "", // 空欄
+            "Created categories": "" // 空欄
         };
         return headers.map(h => `"${(data[h] || '').toString().replace(/"/g, '""')}"`).join(',');
     });
@@ -87,10 +163,10 @@ module.exports = (sessions) => {
 
                 for (const record of session.records) {
                     try {
-                        const imageFiles = await driveService.getRecordImages(record.folderId);
+                        let imageFiles = await driveService.getRecordImages(record.folderId);
                         if (imageFiles.length === 0) throw new Error('フォルダ内に画像がありません。');
                         
-                        // ★★★ ここから修正: 画像の優先順位ソート ★★★
+                        // 画像の優先順位ソートロジック
                         const getSortPriority = (fileName) => {
                             const upperCaseName = fileName.toUpperCase();
                             if (upperCaseName.startsWith('M')) return 1;
@@ -105,22 +181,23 @@ module.exports = (sessions) => {
                             if (priorityA !== priorityB) {
                                 return priorityA - priorityB;
                             }
-                            return a.name.localeCompare(b.name); // 同じ優先度なら名前順
+                            return a.name.localeCompare(b.name);
                         });
 
-                        const mainImageToUpload = imageFiles[0]; // ソート後、最初の画像をメイン画像とする
-                        // ★★★ ここまで修正 ★★★
-
-                        const imageBuffers = await Promise.all(
+                        // AI解析用の画像バッファを取得 (全画像を使用)
+                        const imageBuffersForAi = await Promise.all(
                             imageFiles.map(file => driveService.getDriveImageBuffer(file.id))
                         );
                         
-                        record.aiData = await aiService.analyzeRecord(imageBuffers);
+                        record.aiData = await aiService.analyzeRecord(imageBuffersForAi);
                         
-                        const mainImageIndex = imageFiles.findIndex(f => f.id === mainImageToUpload.id);
-                        const mainImageBuffer = imageBuffers[mainImageIndex];
-                        
-                        record.picURL = await uploadPictureFromBuffer(mainImageBuffer, { pictureName: record.customLabel });
+                        // 全ての画像をeBayにアップロード
+                        const uploadPromises = imageFiles.map(async (file) => {
+                             const buffer = await driveService.getDriveImageBuffer(file.id);
+                             return await uploadPictureFromBuffer(buffer, { pictureName: `${record.customLabel}_${file.name}` });
+                        });
+
+                        record.ebayImageUrls = await Promise.all(uploadPromises);
                         record.images = imageFiles.map(f => ({ id: f.id, name: f.name }));
                         record.status = 'success';
 
