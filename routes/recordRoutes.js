@@ -184,20 +184,34 @@ module.exports = (sessions) => {
                             return a.name.localeCompare(b.name);
                         });
 
-                        // AI解析用の画像バッファを取得 (全画像を使用)
-                        const imageBuffersForAi = await Promise.all(
-                            imageFiles.map(file => driveService.getDriveImageBuffer(file.id))
-                        );
-                        
-                        record.aiData = await aiService.analyzeRecord(imageBuffersForAi);
-                        
-                        // 全ての画像をeBayにアップロード
-                        const uploadPromises = imageFiles.map(async (file) => {
-                             const buffer = await driveService.getDriveImageBuffer(file.id);
-                             return await uploadPictureFromBuffer(buffer, { pictureName: `${record.customLabel}_${file.name}` });
+                        // ★★★ 変更点1: 'J1', 'J2', 'R1'で始まる画像ファイルをAI解析用に選定 ★★★
+                        let imagesForAi = imageFiles.filter(file => {
+                            const upperCaseName = file.name.toUpperCase();
+                            return upperCaseName.startsWith('J1') || upperCaseName.startsWith('J2') || upperCaseName.startsWith('R1');
                         });
 
-                        record.ebayImageUrls = await Promise.all(uploadPromises);
+                        // 該当ファイルがない場合は、ソート後の先頭3枚をフォールバックとして使用
+                        if (imagesForAi.length === 0) {
+                            imagesForAi = imageFiles.slice(0, 3);
+                        }
+                        
+                        const imageBuffersForAi = await Promise.all(
+                            imagesForAi.map(file => driveService.getDriveImageBuffer(file.id))
+                        );
+                        
+                        if (imageBuffersForAi.length === 0) {
+                            throw new Error('AI解析用の画像が見つかりませんでした。');
+                        }
+                        record.aiData = await aiService.analyzeRecord(imageBuffersForAi);
+                        
+                        // ★★★ 変更点2: 全ての画像を1枚ずつeBayにアップロード (変更なし) ★★★
+                        record.ebayImageUrls = [];
+                        for (const file of imageFiles) {
+                            const buffer = await driveService.getDriveImageBuffer(file.id);
+                            const uploadedUrl = await uploadPictureFromBuffer(buffer, { pictureName: `${record.customLabel}_${file.name}` });
+                            record.ebayImageUrls.push(uploadedUrl);
+                        }
+
                         record.images = imageFiles.map(f => ({ id: f.id, name: f.name }));
                         record.status = 'success';
 
