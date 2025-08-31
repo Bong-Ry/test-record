@@ -12,7 +12,7 @@ const descriptionTemplate = ({ aiData, userInput }) => {
     return `<div style="font-family: Arial, sans-serif; max-width: 1000px;"><h1 style="color: #1e3a8a;">${userInput.title}</h1><div style="display: flex; flex-wrap: wrap; margin-top: 20px;"><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Condition</h2><ul><li>Sleeve: ${userInput.conditionSleeve}</li><li>Vinyl: ${userInput.conditionVinyl}</li><li>OBI: ${userInput.obi}</li></ul><h2 style="color: #2c5282;">Key Features</h2><ul><li>Artist: ${aiData.Artist || 'N/A'}</li><li>Format: ${aiData.Format || 'Vinyl'}</li><li>Genre: ${aiData.Genre || 'N/A'}</li><li>${jacketDamageText}</li><li>${userInput.comment || ''}</li></ul></div><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Tracklist</h2><ol>${tracklistHtml}</ol></div></div><div style="margin-top: 20px;"><h2 style="color: #2c5282;">Product Description</h2><p>If you have any questions, please feel free to ask us.</p><h2 style="color: #2c5282;">Shipping</h2><p>Shipping by FedEx, DHL, or EMS.</p><h2 style="color: #2c5282;">International Buyers - Please Note:</h2><p>Import duties, taxes, and charges are not included. These charges are the buyer’s responsibility.</p></div></div>`.replace(/\s{2,}/g, ' ').replace(/\n/g, '');
 };
 
-// record-listerの仕様に合わせたCSV生成関数
+// record-listerの仕様に合わせたCSV生成関数2
 const generateCsv = (records) => {
     const headers = [
         "Action(CC=Cp1252)","CustomLabel","StartPrice","ConditionID","Title","Description",
