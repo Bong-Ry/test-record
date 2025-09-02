@@ -151,7 +151,10 @@ module.exports = (sessions) => {
                 const folderIdMatch = parentFolderUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
                 if (!folderIdMatch) throw new Error('無効なGoogle DriveフォルダURLです。');
                 const parentFolderId = folderIdMatch[1];
-                const subfolders = await driveService.getSubfolders(parentFolderId);
+                
+                // 処理するフォルダを5件に制限
+                const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 5);
+                
                 if (subfolders.length === 0) throw new Error('処理対象のフォルダが見つかりません。');
                 const processedCount = (await driveService.getProcessedSubfolders(parentFolderId)).length;
                 const d = new Date();
@@ -184,13 +187,11 @@ module.exports = (sessions) => {
                             return a.name.localeCompare(b.name);
                         });
 
-                        // ★★★ 変更点1: 'J1', 'J2', 'R1'で始まる画像ファイルをAI解析用に選定 ★★★
                         let imagesForAi = imageFiles.filter(file => {
                             const upperCaseName = file.name.toUpperCase();
                             return upperCaseName.startsWith('J1') || upperCaseName.startsWith('J2') || upperCaseName.startsWith('R1');
                         });
 
-                        // 該当ファイルがない場合は、ソート後の先頭3枚をフォールバックとして使用
                         if (imagesForAi.length === 0) {
                             imagesForAi = imageFiles.slice(0, 3);
                         }
@@ -204,13 +205,13 @@ module.exports = (sessions) => {
                         }
                         record.aiData = await aiService.analyzeRecord(imageBuffersForAi);
                         
-                        // ★★★ 変更点2: 全ての画像を1枚ずつeBayにアップロード (変更なし) ★★★
-                        record.ebayImageUrls = [];
-                        for (const file of imageFiles) {
-                            const buffer = await driveService.getDriveImageBuffer(file.id);
-                            const uploadedUrl = await uploadPictureFromBuffer(buffer, { pictureName: `${record.customLabel}_${file.name}` });
-                            record.ebayImageUrls.push(uploadedUrl);
-                        }
+                        // ★★★ 変更点: 全ての画像を並列でeBayにアップロード ★★★
+                        record.ebayImageUrls = await Promise.all(
+                            imageFiles.map(async (file) => {
+                                const buffer = await driveService.getDriveImageBuffer(file.id);
+                                return await uploadPictureFromBuffer(buffer, { pictureName: `${record.customLabel}_${file.name}` });
+                            })
+                        );
 
                         record.images = imageFiles.map(f => ({ id: f.id, name: f.name }));
                         record.status = 'success';
