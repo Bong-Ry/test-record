@@ -152,8 +152,8 @@ module.exports = (sessions) => {
                 if (!folderIdMatch) throw new Error('無効なGoogle DriveフォルダURLです。');
                 const parentFolderId = folderIdMatch[1];
                 
-                // 処理するフォルダを5件に制限
-                const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 5);
+                // 処理するフォルダを10件に制限
+                const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 10);
                 
                 if (subfolders.length === 0) throw new Error('処理対象のフォルダが見つかりません。');
                 const processedCount = (await driveService.getProcessedSubfolders(parentFolderId)).length;
