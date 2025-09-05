@@ -152,8 +152,8 @@ module.exports = (sessions) => {
                 if (!folderIdMatch) throw new Error('無効なGoogle DriveフォルダURLです。');
                 const parentFolderId = folderIdMatch[1];
                 
-                // 処理するフォルダを10件に制限
-                const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 10);
+                // ★★★ 変更点: 処理するフォルダを7件に制限 ★★★
+                const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 7);
                 
                 if (subfolders.length === 0) throw new Error('処理対象のフォルダが見つかりません。');
                 const processedCount = (await driveService.getProcessedSubfolders(parentFolderId)).length;
@@ -205,7 +205,6 @@ module.exports = (sessions) => {
                         }
                         record.aiData = await aiService.analyzeRecord(imageBuffersForAi);
                         
-                        // ★★★ 変更点: 全ての画像を並列でeBayにアップロード ★★★
                         record.ebayImageUrls = await Promise.all(
                             imageFiles.map(async (file) => {
                                 const buffer = await driveService.getDriveImageBuffer(file.id);

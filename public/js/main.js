@@ -31,11 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ).join('');
 
         const priceOptions = ['29.99', '39.99', '59.99', '79.99', '99.99'];
+        // ★★★ 変更点: 「その他」の価格入力欄に step="0.01" を追加 ★★★
         const priceRadios  = priceOptions.map((price, index) =>
             `<label class="radio-label"><input type="radio" name="price-${record.id}" value="${price}" ${index === 0 ? 'checked' : ''} ${isError ? 'disabled' : ''}> ${price} USD</label>`
         ).join('')
         + `<label class="radio-label"><input type="radio" name="price-${record.id}" value="other" ${isError ? 'disabled' : ''}> その他</label>`
-        + `<input type="number" name="price-other-${record.id}" class="other-price-input" style="display:none;" placeholder="価格" ${isError ? 'disabled' : ''}>`;
+        + `<input type="number" name="price-other-${record.id}" class="other-price-input" style="display:none;" placeholder="価格" step="0.01" ${isError ? 'disabled' : ''}>`;
         
         const categoriesHtml = record.categories ? record.categories.map(cat =>
             `<option value="${cat.id}" ${cat.id === defaultCategory ? 'selected' : ''}>${cat.name}</option>`
