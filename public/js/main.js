@@ -1,4 +1,4 @@
-kdocument.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     if (typeof sessionId === 'undefined') return;
 
     const tableBody          = document.querySelector('#results-table tbody');
@@ -95,7 +95,7 @@ kdocument.addEventListener('DOMContentLoaded', () => {
 
         const data = {
             title:            row.querySelector('[name="title"]').value,
-            artist:           row.querySelector('[name="artist"]').value, // アーティスト名も保存
+            artist:           row.querySelector('[name="artist"]').value,
             price:            price,
             shipping:         row.querySelector('[name="shipping"]').value,
             productCondition: row.querySelector('[name="productCondition"]').value,
@@ -129,12 +129,10 @@ kdocument.addEventListener('DOMContentLoaded', () => {
         const recordId = row.dataset.recordId;
         const statusEl = document.getElementById(`status-${recordId}`);
         
-        statusEl.textContent = '🔄'; // 処理中アイコンに変更
-        event.target.disabled = true; // ボタンを無効化
+        statusEl.textContent = '🔄';
+        event.target.disabled = true;
 
-        fetch(`/research/${sessionId}/${recordId}`, {
-            method: 'POST',
-        })
+        fetch(`/research/${sessionId}/${recordId}`, { method: 'POST' })
         .then(res => res.json())
         .then(result => {
             if (result.status === 'ok') {
@@ -142,22 +140,18 @@ kdocument.addEventListener('DOMContentLoaded', () => {
                 row.querySelector('textarea[name="title"]').value = aiData.Title || 'N/A';
                 row.querySelector('textarea[name="artist"]').value = aiData.Artist || 'N/A';
                 row.querySelector('.market-price-display').textContent = aiData.MarketPrice || 'N/A';
-                statusEl.textContent = '✏️'; // アイコンを元に戻す
+                statusEl.textContent = '✏️';
             } else {
                 statusEl.innerHTML = `❌<br><small>${result.error || '再検索失敗'}</small>`;
             }
         })
-        .catch(() => {
-            statusEl.innerHTML = `❌<br><small>通信エラー</small>`;
-        })
-        .finally(() => {
-            event.target.disabled = false; // ボタンを再度有効化
-        });
+        .catch(() => { statusEl.innerHTML = `❌<br><small>通信エラー</small>`; })
+        .finally(() => { event.target.disabled = false; });
     }
 
     function setupEventListeners(row) {
         row.querySelector('.btn-save').addEventListener('click', handleSave);
-        row.querySelector('.btn-research').addEventListener('click', handleResearch); // 再検索ボタンのイベント
+        row.querySelector('.btn-research').addEventListener('click', handleResearch);
         row.querySelector('.main-record-image').addEventListener('click', e => {
             modal.style.display = 'flex';
             modalImg.src = e.target.src;
@@ -165,7 +159,7 @@ kdocument.addEventListener('DOMContentLoaded', () => {
 
         const titleInput    = row.querySelector('textarea[name="title"]');
         const artistInput   = row.querySelector('textarea[name="artist"]');
-        const titleWarning  = row.querySelector('.title-warning'); // このクラスをCSSに追加するか、ここで作成する必要
+        const titleWarning  = row.querySelector('.title-warning');
         const obiSelect     = row.querySelector('.obi-select');
 
         const checkTitleLength = () => {
@@ -211,38 +205,66 @@ kdocument.addEventListener('DOMContentLoaded', () => {
         fetch(`/status/${sessionId}`)
         .then(res => res.json())
         .then(session => {
-            if (!session) return;
-            if (session.status === 'error') {
-                 clearInterval(intervalId);
-                 progressText.textContent = 'エラーが発生しました。';
-                 errorMessage.textContent = session.error;
-                 errorMessage.style.display = 'block';
-                 return;
-            }
-            if (!session.records) return;
+            // ★★★ 追加: サーバーから受け取ったデータを毎回コンソールに表示 ★★★
+            console.log('Status Check - Received session data:', session);
 
-            session.records.forEach(record => {
-                let row = document.getElementById(`row-${record.id}`);
-                if (!row && record.status !== 'pending' && record.status !== 'researching') {
-                    record.categories = session.categories;
-                    tableBody.insertAdjacentHTML('beforeend', createRow(record));
-                    row = document.getElementById(`row-${record.id}`);
-                    setupEventListeners(row);
+            try {
+                if (!session) {
+                    console.warn('Session data is missing. Retrying...');
+                    return;
                 }
-            });
+                if (session.status === 'error') {
+                     clearInterval(intervalId);
+                     progressText.textContent = 'サーバー側でエラーが発生しました。';
+                     errorMessage.textContent = session.error;
+                     errorMessage.style.display = 'block';
+                     console.error('Server-side error:', session.error);
+                     return;
+                }
+                if (!session.records) {
+                    console.warn('Session records not yet available. Retrying...');
+                    return;
+                }
 
-            const total = session.records.length;
-            const processed = session.records.filter(r => r.status !== 'pending' && r.status !== 'researching').length;
-            const progress = total > 0 ? (processed / total) * 100 : 0;
-            progressBarInner.style.width = `${progress}%`;
-            progressText.textContent = `処理中... (${processed}/${total})`;
+                session.records.forEach(record => {
+                    let row = document.getElementById(`row-${record.id}`);
+                    if (!row && record.status !== 'pending' && record.status !== 'researching') {
+                        record.categories = session.categories;
+                        tableBody.insertAdjacentHTML('beforeend', createRow(record));
+                        row = document.getElementById(`row-${record.id}`);
+                        setupEventListeners(row);
+                    }
+                });
 
-            if (session.status === 'completed') {
+                const total = session.records.length;
+                const processed = session.records.filter(r => r.status !== 'pending' && r.status !== 'researching').length;
+                const progress = total > 0 ? (processed / total) * 100 : 0;
+                progressBarInner.style.width = `${progress}%`;
+                progressText.textContent = `処理中... (${processed}/${total})`;
+
+                if (session.status === 'completed') {
+                    console.log('★★★★★ Status is "completed"! Hiding progress and showing results. ★★★★★');
+                    clearInterval(intervalId);
+                    progressContainer.style.display = 'none';
+                    resultsContainer.style.display  = 'block';
+                    downloadBtn.href = `/csv/${sessionId}`;
+                }
+            } catch (e) {
+                // ★★★ 追加: フロントエンドでエラーが発生した場合にコンソールに表示 ★★★
+                console.error('An error occurred while processing status on the frontend:', e);
                 clearInterval(intervalId);
-                progressContainer.style.display = 'none';
-                resultsContainer.style.display  = 'block';
-                downloadBtn.href = `/csv/${sessionId}`;
+                progressText.textContent = '表示処理中にエラーが発生しました。';
+                errorMessage.textContent = '詳細はブラウザの開発者コンソールを確認してください。';
+                errorMessage.style.display = 'block';
             }
+        })
+        .catch(err => {
+            // ★★★ 追加: 通信自体のエラーを捕捉 ★★★
+            console.error('Failed to fetch status from server:', err);
+            clearInterval(intervalId);
+            progressText.textContent = 'サーバーとの通信に失敗しました。';
+            errorMessage.textContent = 'ネットワーク接続を確認するか、Renderのログを確認してください。';
+            errorMessage.style.display = 'block';
         });
     }
 
