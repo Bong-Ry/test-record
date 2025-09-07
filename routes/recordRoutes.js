@@ -4,6 +4,8 @@ const driveService = require('../services/googleDriveService');
 const aiService = require('../services/openAiService');
 const { uploadPictureFromBuffer } = require('../services/ebayService');
 
+// (descriptionTemplate と generateCsv 関数は変更ないので、ここでは省略します)
+// ... 以前のコードと同じ ...
 const descriptionTemplate = ({ aiData, userInput }) => {
     const tracklistHtml = aiData.Tracklist
         ? Object.entries(aiData.Tracklist).map(([key, track]) => `<li>${key}: ${track}</li>`).join('')
@@ -136,12 +138,14 @@ module.exports = (sessions) => {
         if (!parentFolderUrl) return res.redirect('/');
         const sessionId = uuidv4();
         try {
+            console.log(`[${sessionId}] /process: 開始`);
             const shippingOptions = await driveService.getShippingOptions();
             const categories = await driveService.getStoreCategories();
             sessions.set(sessionId, { status: 'processing', records: [], shippingOptions, categories });
             res.render('results', { sessionId, defaultCategory, shippingOptions });
+            console.log(`[${sessionId}] /process: 画面表示完了。非同期処理を開始します。`);
         } catch (error) {
-            console.error("Failed to fetch initial data from Spreadsheet:", error);
+            console.error(`[${sessionId}] /process: 初期データ取得エラー`, error);
             const errorMessage = 'スプレッドシートからの初期データ取得に失敗しました。';
             sessions.set(sessionId, { status: 'error', error: errorMessage, records: [] });
             res.render('results', { sessionId, defaultCategory: '', shippingOptions: [], error: errorMessage });
@@ -155,72 +159,81 @@ module.exports = (sessions) => {
                 if (!folderIdMatch) throw new Error('無効なGoogle DriveフォルダURLです。');
                 const parentFolderId = folderIdMatch[1];
                 
+                console.log(`[${sessionId}] 親フォルダの詳細を取得開始...`);
                 const parentFolder = await driveService.getFolderDetails(parentFolderId);
                 const parentFolderName = parentFolder.name;
+                console.log(`[${sessionId}] 親フォルダ名: ${parentFolderName}`);
 
+                console.log(`[${sessionId}] サブフォルダのリストを取得開始...`);
                 const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 10);
                 if (subfolders.length === 0) throw new Error('処理対象のフォルダが見つかりません。');
+                console.log(`[${sessionId}] ${subfolders.length}件のサブフォルダが見つかりました。`);
 
                 session.records = subfolders.map((f) => ({
                     id: uuidv4(),
                     folderId: f.id,
                     folderName: f.name,
                     status: 'pending',
-                    customLabel: `${parentFolderName}-${f.name}` // SKUを「親フォルダ名-対象フォルダ名」に変更
+                    customLabel: `${parentFolderName}-${f.name}`
                 }));
 
                 for (const record of session.records) {
+                    console.log(`[${sessionId}] レコード処理開始: ${record.customLabel} (Folder ID: ${record.folderId})`);
                     try {
+                        console.log(`[${sessionId}]   - 画像ファイルリストを取得中...`);
                         let imageFiles = await driveService.getRecordImages(record.folderId);
                         if (imageFiles.length === 0) throw new Error('フォルダ内に画像がありません。');
+                        console.log(`[${sessionId}]   - ${imageFiles.length}件の画像が見つかりました。`);
                         
-                        const getSortPriority = (fileName) => {
-                            const upperCaseName = fileName.toUpperCase();
-                            if (upperCaseName.startsWith('M')) return 1;
-                            if (upperCaseName.startsWith('J')) return 2;
-                            if (upperCaseName.startsWith('R')) return 3;
-                            return 4;
-                        };
-
+                        // 画像の優先順位ソートロジック
                         imageFiles.sort((a, b) => {
-                            const priorityA = getSortPriority(a.name);
-                            const priorityB = getSortPriority(b.name);
-                            return priorityA !== priorityB ? priorityA - priorityB : a.name.localeCompare(b.name);
+                            const priority = (name) => {
+                                const upper = name.toUpperCase();
+                                if (upper.startsWith('M')) return 1;
+                                if (upper.startsWith('J')) return 2;
+                                if (upper.startsWith('R')) return 3;
+                                return 4;
+                            };
+                            return priority(a.name) - priority(b.name) || a.name.localeCompare(b.name);
                         });
 
-                        let imagesForAi = imageFiles.filter(file => {
-                            const upperCaseName = file.name.toUpperCase();
-                            return upperCaseName.startsWith('J1') || upperCaseName.startsWith('J2') || upperCaseName.startsWith('R1');
-                        });
+                        let imagesForAi = imageFiles.filter(file => /^(J1|J2|R1)/i.test(file.name));
                         if (imagesForAi.length === 0) imagesForAi = imageFiles.slice(0, 3);
+                        console.log(`[${sessionId}]   - AI解析用に${imagesForAi.length}件の画像を選択しました。`);
                         
+                        console.log(`[${sessionId}]   - AI解析用画像のバッファを取得中...`);
                         const imageBuffersForAi = await Promise.all(
                             imagesForAi.map(file => driveService.getDriveImageBuffer(file.id))
                         );
-                        
                         if (imageBuffersForAi.length === 0) throw new Error('AI解析用の画像が見つかりませんでした。');
                         
+                        console.log(`[${sessionId}]   - OpenAI APIでの解析を開始...`);
                         record.aiData = await aiService.analyzeRecord(imageBuffersForAi);
+                        console.log(`[${sessionId}]   - OpenAI APIでの解析が完了しました。 Title: ${record.aiData.Title}`);
                         
+                        console.log(`[${sessionId}]   - eBayへの画像アップロードを開始 (${imageFiles.length}件)...`);
                         record.ebayImageUrls = await Promise.all(
                             imageFiles.map(async (file) => {
                                 const buffer = await driveService.getDriveImageBuffer(file.id);
                                 return await uploadPictureFromBuffer(buffer, { pictureName: `${record.customLabel}_${file.name}` });
                             })
                         );
+                        console.log(`[${sessionId}]   - eBayへの画像アップロードが完了しました。`);
 
                         record.images = imageFiles.map(f => ({ id: f.id, name: f.name }));
                         record.status = 'success';
+                        console.log(`[${sessionId}] レコード処理成功: ${record.customLabel}`);
 
                     } catch (err) {
-                        console.error(`Error processing record ${record.customLabel}:`, err);
+                        console.error(`[${sessionId}] レコード処理エラー ${record.customLabel}:`, err);
                         record.status = 'error';
                         record.error = err.message;
                     }
                 }
                 session.status = 'completed';
+                console.log(`[${sessionId}] 全ての処理が完了しました。`);
             } catch (err) {
-                console.error(`Fatal error in processing session:`, err);
+                console.error(`[${sessionId}] セッション全体の致命的なエラー:`, err);
                 session.status = 'error';
                 session.error = err.message;
             }
@@ -231,7 +244,6 @@ module.exports = (sessions) => {
         res.json(sessions.get(req.params.sessionId) || { status: 'error', error: 'Session not found' });
     });
 
-    // 再検索用の新しいエンドポイント
     router.post('/research/:sessionId/:recordId', async (req, res) => {
         const { sessionId, recordId } = req.params;
         const session = sessions.get(sessionId);
@@ -240,25 +252,20 @@ module.exports = (sessions) => {
 
         try {
             record.status = 'researching';
-
             let imageFiles = await driveService.getRecordImages(record.folderId);
             if (imageFiles.length === 0) throw new Error('フォルダ内に画像がありません。');
             
-            let imagesForAi = imageFiles.filter(file => {
-                const upperCaseName = file.name.toUpperCase();
-                return upperCaseName.startsWith('J1') || upperCaseName.startsWith('J2') || upperCaseName.startsWith('R1');
-            });
+            let imagesForAi = imageFiles.filter(file => /^(J1|J2|R1)/i.test(file.name));
             if (imagesForAi.length === 0) imagesForAi = imageFiles.slice(0, 3);
             
             const imageBuffersForAi = await Promise.all(
                 imagesForAi.map(file => driveService.getDriveImageBuffer(file.id))
             );
-            
             if (imageBuffersForAi.length === 0) throw new Error('AI解析用の画像が見つかりませんでした。');
             
             const excludeUrl = record.aiData?.DiscogsUrl || null;
             record.aiData = await aiService.analyzeRecord(imageBuffersForAi, excludeUrl);
-            record.status = 'success'; // ステータスを戻す
+            record.status = 'success';
             
             res.json({ status: 'ok', aiData: record.aiData });
 
@@ -276,7 +283,6 @@ module.exports = (sessions) => {
         const record = session?.records.find(r => r.id === recordId);
         if (!record) return res.status(404).json({ error: 'Record not found' });
         
-        // userInputにマージする形で保存
         record.userInput = { ...record.userInput, ...req.body };
         record.status = 'saved';
         await driveService.renameFolder(record.folderId, `済 ${record.folderName}`);
