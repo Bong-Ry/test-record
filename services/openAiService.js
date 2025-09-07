@@ -6,51 +6,56 @@ const openai = new OpenAI({
 
 const PROMPT_TEXT = `
 あなたはプロのアナログレコード鑑定士です。
-提供されたレコードのジャケットやラベルの画像から、Discogsのデータベースを参照して、このレコードを1件だけ特定してください。
-そして、以下のJSON形式に従って、すべての項目を英語で出力してください。
-もし日本語の情報が見つかった場合は、必ず自然な英語に翻訳してください。日本語は一切含めないでください。
+提供されたレコードのジャケットやラベルの画像を注意深く分析し、Discogsデータベースから最も一致するレコードを1件だけ特定してください。
+その後、以下のJSON形式に従い、全ての項目を英語で出力してください。日本語は一切含めないでください。
 
-- Title: アルバムのタイトル。必ず英語で表記してください。
-- Artist: アーティスト名。必ず英語（ローマ字）で表記してください。日本語は使用しないでください。
-- Genre: 音楽ジャンル。必ず英語で表記してください。
-- Style: より詳細な音楽スタイル。必ず英語で表記してください。
-- RecordLabel: レーベル名。
+- Title: アルバムの正式タイトル。
+- Artist: アーティストの正式名称。
+- MarketPrice: DiscogsやeBayの販売履歴など、複数の情報源を比較検討し、このレコードの一般的な中古市場価格の相場を "USD" で記述してください。単一の出品価格ではなく、取引が成立している価格帯を参考にしてください。例: "35-50 USD"。情報が不十分な場合は "N/A" としてください。
+- Genre: 主要な音楽ジャンル。
+- Style: より詳細な音楽スタイル。
+- RecordLabel: レコードレーベル名。
 - CatalogNumber: カタログ番号。
-- Format: "Vinyl, LP, Album, Reissue" のような詳細なフォーマット。
+- Format: "Vinyl, LP, Album, Reissue, Stereo" のような詳細なフォーマット。
 - Country: リリース国。
 - Released: リリース年。
-- Tracklist: トラック番号をキー、曲名を値とするJSONオブジェクト形式で記載してください。例: { "A1": "Song Title 1", "A2": "Song Title 2", "B1": "Song Title 3" }
-- Notes: Discogsに記載されている特記事項。
-- DiscogsUrl: 特定したDiscogsのURL。
-- MPN: カタログ番号と同じで可。
+- Tracklist: { "A1": "曲名1", "A2": "曲名2" } のように、トラック番号をキー、曲名を値とするJSONオブジェクト形式で記載してください。
+- Notes: Discogsに記載されている特記事項や識別のための重要な情報。
+- DiscogsUrl: 特定したDiscogsページのURL。
+- MPN: カタログ番号と同じ値を設定してください。
 - Material: レコードの素材。通常は "Vinyl" です。
 
-必ず指定されたJSONフォーマットで回答してください。他のテキストは含めないでください。
+制約事項:
+- 画像から読み取れるカタログ番号、レーベル、特徴（帯の有無など）を最優先し、最も確実な情報に基づいてレコードを特定してください。
+- 再検索の場合、前回の候補とは異なる、より類似性の高いレコードを検索してください。
+- 除外すべきDiscogsのURLが指定された場合、そのURLのレコードは絶対に結果に含めないでください。
+- 必ず指定されたJSONフォーマットのみを回答し、他のテキストは一切含めないでください。
 `;
 
-// URLの代わりに画像データのBufferを受け取るように変更
-async function analyzeRecord(imageBuffers) {
+// analyzeRecord関数は変更なし
+async function analyzeRecord(imageBuffers, excludeUrl = null) {
     if (!imageBuffers || imageBuffers.length === 0) {
         throw new Error('画像データがありません。');
     }
 
-    // 画像データをBase64形式に変換
-    const imageMessages = imageBuffers.map(buffer => {
-        const base64Image = buffer.toString('base64');
-        return {
-            type: 'image_url',
-            image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-        };
-    });
+    const imageMessages = imageBuffers.map(buffer => ({
+        type: 'image_url',
+        image_url: { url: `data:image/jpeg;base64,${buffer.toString('base64')}` },
+    }));
+    
+    let userPrompt = PROMPT_TEXT;
+    if (excludeUrl) {
+        userPrompt += `\n除外するURL: ${excludeUrl}`;
+    }
 
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4o-mini', // モデルをgpt-4o-miniに戻す
             messages: [
                 {
                     role: 'user',
                     content: [
-                        { type: 'text', text: PROMPT_TEXT },
+                        { type: 'text', text: userPrompt },
                         ...imageMessages,
                     ],
                 },

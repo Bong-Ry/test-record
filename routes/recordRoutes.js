@@ -9,10 +9,11 @@ const descriptionTemplate = ({ aiData, userInput }) => {
         ? Object.entries(aiData.Tracklist).map(([key, track]) => `<li>${key}: ${track}</li>`).join('')
         : '<li>N/A</li>';
     const jacketDamageText = userInput.jacketDamage?.length > 0 ? `Jacket damages: ${userInput.jacketDamage.join(', ')}` : '';
-    return `<div style="font-family: Arial, sans-serif; max-width: 1000px;"><h1 style="color: #1e3a8a;">${userInput.title}</h1><div style="display: flex; flex-wrap: wrap; margin-top: 20px;"><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Condition</h2><ul><li>Sleeve: ${userInput.conditionSleeve}</li><li>Vinyl: ${userInput.conditionVinyl}</li><li>OBI: ${userInput.obi}</li></ul><h2 style="color: #2c5282;">Key Features</h2><ul><li>Artist: ${aiData.Artist || 'N/A'}</li><li>Format: ${aiData.Format || 'Vinyl'}</li><li>Genre: ${aiData.Genre || 'N/A'}</li><li>${jacketDamageText}</li><li>${userInput.comment || ''}</li></ul></div><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Tracklist</h2><ol>${tracklistHtml}</ol></div></div><div style="margin-top: 20px;"><h2 style="color: #2c5282;">Product Description</h2><p>If you have any questions, please feel free to ask us.</p><h2 style="color: #2c5282;">Shipping</h2><p>Shipping by FedEx, DHL, or EMS.</p><h2 style="color: #2c5282;">International Buyers - Please Note:</h2><p>Import duties, taxes, and charges are not included. These charges are the buyer’s responsibility.</p></div></div>`.replace(/\s{2,}/g, ' ').replace(/\n/g, '');
+    // userInput.artistが存在すればそれを使用し、なければaiData.Artistを使用
+    const artist = userInput.artist || aiData.Artist || 'N/A';
+    return `<div style="font-family: Arial, sans-serif; max-width: 1000px;"><h1 style="color: #1e3a8a;">${userInput.title}</h1><div style="display: flex; flex-wrap: wrap; margin-top: 20px;"><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Condition</h2><ul><li>Sleeve: ${userInput.conditionSleeve}</li><li>Vinyl: ${userInput.conditionVinyl}</li><li>OBI: ${userInput.obi}</li></ul><h2 style="color: #2c5282;">Key Features</h2><ul><li>Artist: ${artist}</li><li>Format: ${aiData.Format || 'Vinyl'}</li><li>Genre: ${aiData.Genre || 'N/A'}</li><li>${jacketDamageText}</li><li>${userInput.comment || ''}</li></ul></div><div style="flex: 1; min-width: 300px; padding: 10px;"><h2 style="color: #2c5282;">Tracklist</h2><ol>${tracklistHtml}</ol></div></div><div style="margin-top: 20px;"><h2 style="color: #2c5282;">Product Description</h2><p>If you have any questions, please feel free to ask us.</p><h2 style="color: #2c5282;">Shipping</h2><p>Shipping by FedEx, DHL, or EMS.</p><h2 style="color: #2c5282;">International Buyers - Please Note:</h2><p>Import duties, taxes, and charges are not included. These charges are the buyer’s responsibility.</p></div></div>`.replace(/\s{2,}/g, ' ').replace(/\n/g, '');
 };
 
-// record-listerの仕様に合わせたCSV生成関数2
 const generateCsv = (records) => {
     const headers = [
         "Action(CC=Cp1252)","CustomLabel","StartPrice","ConditionID","Title","Description",
@@ -34,10 +35,12 @@ const generateCsv = (records) => {
     const rows = records.filter(r => r.status === 'saved').map(r => {
         const { aiData: ai, userInput: user, ebayImageUrls, customLabel } = r;
         const picURL = ebayImageUrls ? ebayImageUrls.join('|') : '';
-
+        
+        // ユーザーが編集したアーティスト名とタイトルを優先
+        const artist = user.artist || ai.Artist || '';
         let finalTitle = user.title || ai.Title || '';
-        if (ai.Artist) {
-            finalTitle = `${ai.Artist} ${finalTitle}`;
+        if (artist) {
+            finalTitle = `${artist} ${finalTitle}`;
         }
         if (user.obi && user.obi !== 'なし' && user.obi !== 'Not Applicable') {
             finalTitle += ' w/OBI';
@@ -52,8 +55,8 @@ const generateCsv = (records) => {
             "Description": descriptionTemplate({ aiData: ai, userInput: user }),
             "C:Brand": ai.RecordLabel || '',
             "PicURL": picURL,
-            "UPC": "", // 空欄
-            "Category": "176985", // 固定値
+            "UPC": "",
+            "Category": "176985",
             "PayPalAccepted": "1",
             "PayPalEmailAddress": "payAddress",
             "PaymentProfileName": "buy it now",
@@ -61,7 +64,7 @@ const generateCsv = (records) => {
             "ShippingProfileName": user.shipping || '',
             "Country": "JP",
             "Location": "417-0816, Fuji Shizuoka",
-            "StoreCategory": user.category || '', // ユーザー選択のカテゴリ
+            "StoreCategory": user.category || '',
             "Apply Profile Domestic": "0",
             "Apply Profile International": "0",
             "BuyerRequirements:LinkedPayPalAccount": "0",
@@ -72,43 +75,43 @@ const generateCsv = (records) => {
             "SiteID": "US",
             "C:Country": ai.Country || '',
             "BestOfferEnabled": "0",
-            "C:Artist": ai.Artist || '',
+            "C:Artist": artist, // 編集後のアーティスト名を反映
             "C:Material": ai.Material || 'Vinyl',
             "C:Release Title": user.title || ai.Title || '',
             "C:Genre": ai.Genre || '',
-            "C:Type": "", // 空欄
+            "C:Type": "",
             "C:Record Label": ai.RecordLabel || '',
-            "C:Color": "", // 空欄
-            "C:Record Size": "", // 空欄
+            "C:Color": "",
+            "C:Record Size": "",
             "C:Style": ai.Style || '',
             "C:Format": ai.Format || '',
             "C:Release Year": ai.Released || '',
             "C:Record Grading": user.conditionVinyl || '',
             "C:Sleeve Grading": user.conditionSleeve || '',
-            "C:Inlay Condition": "", // 空欄
-            "C:Case Type": "", // 空欄
-            "C:Edition": "", // 空欄
-            "C:Speed": "", // 空欄
-            "C:Features": "", // 空欄
+            "C:Inlay Condition": "",
+            "C:Case Type": "",
+            "C:Edition": "",
+            "C:Speed": "",
+            "C:Features": "",
             "C:Country/Region of Manufacture": "Japan",
-            "C:Language": "", // 空欄
-            "C:Occasion": "", // 空欄
-            "C:Instrument": "", // 空欄
-            "C:Era": "", // 空欄
-            "C:Producer": "", // 空欄
-            "C:Fidelity Level": "", // 空欄
-            "C:Composer": "", // 空欄
-            "C:Conductor": "", // 空欄
-            "C:Performer Orchestra": "", // 空欄
-            "C:Run Time": "", // 空欄
-            "C:MPN": "", // 空欄
-            "C:California Prop 65 Warning": "", // 空欄
+            "C:Language": "",
+            "C:Occasion": "",
+            "C:Instrument": "",
+            "C:Era": "",
+            "C:Producer": "",
+            "C:Fidelity Level": "",
+            "C:Composer": "",
+            "C:Conductor": "",
+            "C:Performer Orchestra": "",
+            "C:Run Time": "",
+            "C:MPN": "",
+            "C:California Prop 65 Warning": "",
             "C:Catalog Number": ai.CatalogNumber || '',
-            "C:Number of Audio Channels": "", // 空欄
-            "C:Unit Quantity": "", // 空欄
-            "C:Unit Type": "", // 空欄
-            "C:Vinyl Matrix Number": "", // 空欄
-            "Created categories": "" // 空欄
+            "C:Number of Audio Channels": "",
+            "C:Unit Quantity": "",
+            "C:Unit Type": "",
+            "C:Vinyl Matrix Number": "",
+            "Created categories": ""
         };
         return headers.map(h => `"${(data[h] || '').toString().replace(/"/g, '""')}"`).join(',');
     });
@@ -152,16 +155,18 @@ module.exports = (sessions) => {
                 if (!folderIdMatch) throw new Error('無効なGoogle DriveフォルダURLです。');
                 const parentFolderId = folderIdMatch[1];
                 
-                // ★★★ 変更点: 処理するフォルダを7件に制限 ★★★
-                const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 7);
-                
+                const parentFolder = await driveService.getFolderDetails(parentFolderId);
+                const parentFolderName = parentFolder.name;
+
+                const subfolders = (await driveService.getSubfolders(parentFolderId)).slice(0, 10);
                 if (subfolders.length === 0) throw new Error('処理対象のフォルダが見つかりません。');
-                const processedCount = (await driveService.getProcessedSubfolders(parentFolderId)).length;
-                const d = new Date();
-                const datePrefix = `R${d.getFullYear().toString().slice(-2)}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}`;
-                session.records = subfolders.map((f, index) => ({
-                    id: uuidv4(), folderId: f.id, folderName: f.name, status: 'pending',
-                    customLabel: `${datePrefix}_${(processedCount + index + 1).toString().padStart(4, '0')}`
+
+                session.records = subfolders.map((f) => ({
+                    id: uuidv4(),
+                    folderId: f.id,
+                    folderName: f.name,
+                    status: 'pending',
+                    customLabel: `${parentFolderName}-${f.name}` // SKUを「親フォルダ名-対象フォルダ名」に変更
                 }));
 
                 for (const record of session.records) {
@@ -169,7 +174,6 @@ module.exports = (sessions) => {
                         let imageFiles = await driveService.getRecordImages(record.folderId);
                         if (imageFiles.length === 0) throw new Error('フォルダ内に画像がありません。');
                         
-                        // 画像の優先順位ソートロジック
                         const getSortPriority = (fileName) => {
                             const upperCaseName = fileName.toUpperCase();
                             if (upperCaseName.startsWith('M')) return 1;
@@ -181,28 +185,21 @@ module.exports = (sessions) => {
                         imageFiles.sort((a, b) => {
                             const priorityA = getSortPriority(a.name);
                             const priorityB = getSortPriority(b.name);
-                            if (priorityA !== priorityB) {
-                                return priorityA - priorityB;
-                            }
-                            return a.name.localeCompare(b.name);
+                            return priorityA !== priorityB ? priorityA - priorityB : a.name.localeCompare(b.name);
                         });
 
                         let imagesForAi = imageFiles.filter(file => {
                             const upperCaseName = file.name.toUpperCase();
                             return upperCaseName.startsWith('J1') || upperCaseName.startsWith('J2') || upperCaseName.startsWith('R1');
                         });
-
-                        if (imagesForAi.length === 0) {
-                            imagesForAi = imageFiles.slice(0, 3);
-                        }
+                        if (imagesForAi.length === 0) imagesForAi = imageFiles.slice(0, 3);
                         
                         const imageBuffersForAi = await Promise.all(
                             imagesForAi.map(file => driveService.getDriveImageBuffer(file.id))
                         );
                         
-                        if (imageBuffersForAi.length === 0) {
-                            throw new Error('AI解析用の画像が見つかりませんでした。');
-                        }
+                        if (imageBuffersForAi.length === 0) throw new Error('AI解析用の画像が見つかりませんでした。');
+                        
                         record.aiData = await aiService.analyzeRecord(imageBuffersForAi);
                         
                         record.ebayImageUrls = await Promise.all(
@@ -234,12 +231,53 @@ module.exports = (sessions) => {
         res.json(sessions.get(req.params.sessionId) || { status: 'error', error: 'Session not found' });
     });
 
+    // 再検索用の新しいエンドポイント
+    router.post('/research/:sessionId/:recordId', async (req, res) => {
+        const { sessionId, recordId } = req.params;
+        const session = sessions.get(sessionId);
+        const record = session?.records.find(r => r.id === recordId);
+        if (!record) return res.status(404).json({ error: 'Record not found' });
+
+        try {
+            record.status = 'researching';
+
+            let imageFiles = await driveService.getRecordImages(record.folderId);
+            if (imageFiles.length === 0) throw new Error('フォルダ内に画像がありません。');
+            
+            let imagesForAi = imageFiles.filter(file => {
+                const upperCaseName = file.name.toUpperCase();
+                return upperCaseName.startsWith('J1') || upperCaseName.startsWith('J2') || upperCaseName.startsWith('R1');
+            });
+            if (imagesForAi.length === 0) imagesForAi = imageFiles.slice(0, 3);
+            
+            const imageBuffersForAi = await Promise.all(
+                imagesForAi.map(file => driveService.getDriveImageBuffer(file.id))
+            );
+            
+            if (imageBuffersForAi.length === 0) throw new Error('AI解析用の画像が見つかりませんでした。');
+            
+            const excludeUrl = record.aiData?.DiscogsUrl || null;
+            record.aiData = await aiService.analyzeRecord(imageBuffersForAi, excludeUrl);
+            record.status = 'success'; // ステータスを戻す
+            
+            res.json({ status: 'ok', aiData: record.aiData });
+
+        } catch (err) {
+            console.error(`Error re-searching record ${record.customLabel}:`, err);
+            record.status = 'error';
+            record.error = err.message;
+            res.status(500).json({ status: 'error', error: err.message });
+        }
+    });
+
     router.post('/save/:sessionId/:recordId', async (req, res) => {
         const { sessionId, recordId } = req.params;
         const session = sessions.get(sessionId);
         const record = session?.records.find(r => r.id === recordId);
         if (!record) return res.status(404).json({ error: 'Record not found' });
-        record.userInput = req.body;
+        
+        // userInputにマージする形で保存
+        record.userInput = { ...record.userInput, ...req.body };
         record.status = 'saved';
         await driveService.renameFolder(record.folderId, `済 ${record.folderName}`);
         res.json({ status: 'ok' });
