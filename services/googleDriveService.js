@@ -65,12 +65,26 @@ async function listAll(params) {
     return files;
 }
 
+// 親フォルダ名を取得するために必要な関数
+async function getFolderDetails(folderId) {
+    try {
+        const res = await drive.files.get({
+            fileId: folderId,
+            fields: 'id, name',
+            supportsAllDrives: true,
+        });
+        return res.data;
+    } catch (err) {
+        console.error('Error fetching folder details:', err.message);
+        throw new Error('フォルダ詳細の取得に失敗しました。');
+    }
+}
+
 async function getSubfolders(parentFolderId) {
     try {
         const files = await listAll({
             q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
             fields: 'files(id, name), nextPageToken',
-            // ★★★ 修正点: 作成日時(createdTime)で昇順(古い順)にソート ★★★
             orderBy: 'createdTime', 
             supportsAllDrives: true,
             includeItemsFromAllDrives: true,
@@ -158,4 +172,5 @@ module.exports = {
     getDriveImageBuffer,
     getStoreCategories,
     getShippingOptions,
+    getFolderDetails,
 };
